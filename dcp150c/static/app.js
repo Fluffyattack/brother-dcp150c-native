@@ -2,121 +2,239 @@
 "use strict";
 
 const findElementById = (elementId) => document.getElementById(elementId);
-const inkNames = { c: "Cyan", m: "Magenta", y: "Yellow", k: "Black" };
+const cartridgeIdentifiers = ["c", "m", "y", "k"];
+const languageStorageKey = "dcp150c.dashboard.language";
+let languagePreference = "auto";
+let selectedLanguage = "en";
+let numberFormatter;
+let percentageFormatter;
+let timeFormatter;
+let pluralRules;
+let latestSnapshot = null;
+let connectionUnavailable = false;
 let requestActive = false;
 let requestQueued = false;
 let manualTimer;
-let lastState = "";
+let lastPrinterState = "";
 
-function formatStateLabel(value) {
-  return String(value || "unknown").replaceAll("_", " ").replace(/^./, (character) => character.toUpperCase());
+function translate(messageIdentifier, parameters = {}) {
+  const template = dashboardLanguages[selectedLanguage].messages[messageIdentifier]
+    ?? dashboardLanguages.en.messages[messageIdentifier]
+    ?? dashboardLanguages.en.messages["message.status_unknown"];
+  return template.replace(/\{([a-zA-Z_]+)\}/g, (placeholder, name) =>
+    Object.prototype.hasOwnProperty.call(parameters, name) ? String(parameters[name]) : placeholder);
+}
+
+function matchSupportedLanguage(languageTag) {
+  let candidate = String(languageTag || "").replaceAll("_", "-").toLowerCase();
+  while (candidate) {
+    const supported = Object.keys(dashboardLanguages).find((language) => language.toLowerCase() === candidate);
+    if (supported) return supported;
+    const separator = candidate.lastIndexOf("-");
+    if (separator < 0) break;
+    candidate = candidate.slice(0, separator);
+  }
+  return null;
+}
+
+function browserLanguage() {
+  for (const language of navigator.languages || [navigator.language]) {
+    const supported = matchSupportedLanguage(language);
+    if (supported) return supported;
+  }
+  return "en";
+}
+
+function applyLanguage(preference, remember = false) {
+  languagePreference = preference === "auto" ? "auto" : matchSupportedLanguage(preference) || "auto";
+  selectedLanguage = languagePreference === "auto" ? browserLanguage() : languagePreference;
+  numberFormatter = new Intl.NumberFormat(selectedLanguage, { maximumFractionDigits: 0 });
+  percentageFormatter = new Intl.NumberFormat(selectedLanguage, { style: "percent", maximumFractionDigits: 0 });
+  timeFormatter = new Intl.DateTimeFormat(selectedLanguage, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  pluralRules = new Intl.PluralRules(selectedLanguage);
+  document.documentElement.lang = selectedLanguage;
+  document.documentElement.dir = dashboardLanguages[selectedLanguage].direction || "ltr";
+
+  for (const [attribute, destination] of [
+    ["data-translation", null],
+    ["data-translation-label", "aria-label"],
+    ["data-translation-content", "content"]
+  ]) {
+    for (const element of document.querySelectorAll(`[${attribute}]`)) {
+      const text = translate(element.getAttribute(attribute), { seconds: numberFormatter.format(5) });
+      if (destination) element.setAttribute(destination, text);
+      else element.textContent = text;
+    }
+  }
+
+  const languageSelector = findElementById("language");
+  languageSelector.replaceChildren();
+  languageSelector.append(new Option(translate("language.automatic"), "auto"));
+  for (const [language, definition] of Object.entries(dashboardLanguages)) {
+    const option = new Option(definition.name, language);
+    option.lang = language;
+    languageSelector.append(option);
+  }
+  languageSelector.value = languagePreference;
+  for (const cartridge of cartridgeIdentifiers) {
+    findElementById(`ink-progress-${cartridge}`).setAttribute("aria-label",
+      translate("ink.level_label", { colour: translate(`ink.${cartridge}`) }));
+  }
+
+  // Switching language only renders cached data; it never starts a USB query.
+  const showConnectionError = connectionUnavailable;
+  lastPrinterState = "";
+  if (latestSnapshot) render(latestSnapshot);
+  if (showConnectionError) connectionError();
+  findElementById("refresh-label").textContent = translate(
+    findElementById("refresh").disabled ? "refresh.working" : "refresh.button");
+  if (remember) {
+    try {
+      localStorage.setItem(languageStorageKey, languagePreference);
+    } catch (_) {
+      // The selector still works when browser storage is disabled.
+    }
+  }
 }
 
 function renderInk(ink, capabilities) {
-  for (const key of Object.keys(inkNames)) {
-    const reading = ink?.[key] || {};
-    const value = findElementById(`ink-value-${key}`);
-    const progress = findElementById(`ink-progress-${key}`);
-    const unknown = findElementById(`ink-unknown-${key}`);
+  for (const cartridge of cartridgeIdentifiers) {
+    const reading = ink?.[cartridge] || {};
+    const value = findElementById(`ink-value-${cartridge}`);
+    const progress = findElementById(`ink-progress-${cartridge}`);
+    const unknown = findElementById(`ink-unknown-${cartridge}`);
     const state = reading.state || "unknown";
     const percentage = reading.percent;
     const known = typeof percentage === "number" && Number.isFinite(percentage) && percentage >= 0 && percentage <= 100;
     value.replaceChildren();
     value.classList.toggle("text-reading", !known && state !== "unknown");
     if (known) {
-      value.append(document.createTextNode(String(Math.round(percentage))));
-      const unit = document.createElement("small");
-      unit.textContent = "%";
-      value.append(unit);
+      for (const part of percentageFormatter.formatToParts(percentage / 100)) {
+        if (part.type === "percentSign") {
+          const unit = document.createElement("small");
+          unit.textContent = part.value;
+          value.append(unit);
+        } else {
+          value.append(document.createTextNode(part.value));
+        }
+      }
       progress.value = percentage;
-      progress.setAttribute("aria-valuetext", `${Math.round(percentage)} percent${reading.granularity === "stepped" ? ", reported level step" : ""}`);
-      findElementById(`ink-state-${key}`).textContent = reading.granularity === "stepped"
-        ? "Reported level step" : state === "unknown" ? "Reported by printer" : formatStateLabel(state);
+      const percentageLabel = percentageFormatter.format(percentage / 100);
+      progress.setAttribute("aria-valuetext", reading.granularity === "stepped"
+        ? translate("ink.percentage_label", { percentage: percentageLabel }) : percentageLabel);
+      findElementById(`ink-state-${cartridge}`).textContent = translate(
+        reading.granularity === "stepped" ? "ink.reported_step" : "ink.reported");
     } else {
-      const labels = { ok: "Detected", low: "Low", empty: "Empty", missing: "Missing", unknown: "—" };
-      value.textContent = labels[state] || formatStateLabel(state);
-      findElementById(`ink-state-${key}`).textContent = state === "unknown" ? "Level unavailable" : "Printer-reported status";
+      const stateIdentifiers = { ok: "detected", low: "low", empty: "empty", missing: "missing" };
+      value.textContent = state === "unknown" ? "—" : translate(`ink.${stateIdentifiers[state] || "unknown"}`);
+      progress.removeAttribute("aria-valuetext");
+      findElementById(`ink-state-${cartridge}`).textContent = translate(
+        state === "unknown" ? "ink.unavailable" : "ink.status_reported");
     }
     progress.hidden = !known;
     unknown.hidden = known;
   }
-  findElementById("ink-note").textContent = capabilities?.ink_stepped
-    ? "This model reports ink levels in steps: 0, 10, 25, 40, 55, 70, 85 and 100 percent. These are cartridge level bands."
-    : capabilities?.ink_percent
-    ? "Levels are reported by the printer. An unknown level does not mean an empty cartridge."
-    : "Exact percentages are unavailable. Any low or empty states reported by the printer are shown; unknown does not mean empty.";
+  findElementById("ink-note").textContent = translate(capabilities?.ink_stepped
+    ? "ink.steps_note" : capabilities?.ink_percent ? "ink.percent_note" : "ink.unavailable_note");
 }
 
 function renderActivity(cups) {
   cups = cups || {};
   const jobs = Array.isArray(cups.jobs) ? cups.jobs.slice(0, 20) : [];
-  findElementById("queue-name").textContent = cups.queue || "PRINT QUEUE";
+  findElementById("queue-name").textContent = cups.queue || translate("activity.queue");
   const list = findElementById("job-list");
   list.replaceChildren();
   list.hidden = !jobs.length;
-  findElementById("job-count").textContent = cups.available && cups.active !== null ? String(jobs.length) : "—";
+  findElementById("job-count").textContent = cups.available && cups.active !== null
+    ? numberFormatter.format(jobs.length) : "—";
+  let title;
+  let detail;
   if (!cups.available) {
-    findElementById("activity-title").textContent = "Print queue unavailable";
-    findElementById("activity-detail").textContent = "Printing activity could not be read from the local print service.";
+    title = translate("activity.unavailable");
+    detail = translate("activity.unavailable_detail");
   } else if (cups.active === null) {
-    findElementById("activity-title").textContent = "Queue status unknown";
-    findElementById("activity-detail").textContent = "The selected print queue could not be checked.";
+    title = translate("activity.unknown");
+    detail = translate("activity.unknown_detail");
   } else if (cups.active || jobs.length) {
-    findElementById("activity-title").textContent = jobs.length === 1 ? "1 active print job" : `${jobs.length} active print jobs`;
-    findElementById("activity-detail").textContent = "Status queries wait while printing uses the USB connection.";
+    const pluralCategory = pluralRules.select(jobs.length);
+    const messageIdentifier = `activity.active_jobs.${pluralCategory}`;
+    const available = dashboardLanguages[selectedLanguage].messages[messageIdentifier]
+      ?? dashboardLanguages.en.messages[messageIdentifier];
+    title = translate(available ? messageIdentifier : "activity.active_jobs.other", { count: numberFormatter.format(jobs.length) });
+    detail = translate("activity.usb_in_use");
   } else {
-    findElementById("activity-title").textContent = "No active print jobs";
-    findElementById("activity-detail").textContent = cups.state === "stopped" ? "The print queue is paused." : "Your queue is clear.";
+    title = translate("activity.no_jobs");
+    detail = translate(cups.state === "stopped" ? "activity.paused" : "activity.clear");
   }
+  findElementById("activity-title").textContent = title;
+  findElementById("activity-detail").textContent = detail;
   for (const job of jobs) {
     const item = document.createElement("li");
-    const id = document.createElement("span");
-    const detail = document.createElement("span");
-    id.textContent = String(job.id || "Print job");
-    detail.textContent = job.owner ? String(job.owner) : "";
-    item.append(id, detail);
+    const identifier = document.createElement("span");
+    const owner = document.createElement("span");
+    identifier.textContent = String(job.id || translate("activity.job"));
+    owner.textContent = job.owner ? String(job.owner) : "";
+    item.append(identifier, owner);
     list.append(item);
   }
 }
 
 function render(snapshot) {
+  latestSnapshot = snapshot;
+  connectionUnavailable = false;
   const state = snapshot.state || "unknown";
-  const stateNames = { offline: "Printer is offline", ready: "Ready to print", printing: "Printing in progress", busy: "Printer is busy", error: "Printer needs attention", unknown: "Printer status unknown", cover_open: "Printer cover is open", paper_jam: "Paper jam", out_of_paper: "Printer needs paper", ink_empty: "An ink cartridge is empty" };
-  const label = stateNames[state] || formatStateLabel(state);
+  const stateIdentifier = `status.${state}`;
+  const label = translate(dashboardLanguages.en.messages[stateIdentifier] ? stateIdentifier : "status.unknown");
   findElementById("printer-state").textContent = label;
-  findElementById("printer-message").textContent = snapshot.message || "No additional status information.";
+  const defaultMessageCodes = {
+    ready: "printer_ready", offline: "printer_offline", printing: "printing_active",
+    busy: "usb_connection_busy", error: "printer_error", cover_open: "cover_open",
+    paper_jam: "paper_jam", out_of_paper: "paper_empty", ink_empty: "ink_empty"
+  };
+  const messageIdentifier = `message.${snapshot.message_code || defaultMessageCodes[state] || "status_unknown"}`;
+  findElementById("printer-message").textContent = translate(
+    dashboardLanguages.en.messages[messageIdentifier] ? messageIdentifier : "message.status_unknown",
+    snapshot.message_parameters || {});
   const symbol = findElementById("status-symbol");
   symbol.className = "status-symbol";
   if (["ready", "printing", "error"].includes(state)) symbol.classList.add(state);
   if (["cover_open", "paper_jam", "out_of_paper", "ink_empty"].includes(state)) symbol.classList.add("error");
   const pollDate = snapshot.last_poll ? new Date(snapshot.last_poll) : null;
   findElementById("last-updated").textContent = pollDate && Number.isFinite(pollDate.getTime())
-    ? `Updated ${pollDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
-    : "No reading yet";
-  findElementById("live-label").textContent = snapshot.refreshing ? "READING STATUS…" : "AUTO REFRESH · 5 SEC";
+    ? translate("status.updated", { time: timeFormatter.format(pollDate) }) : translate("status.no_reading");
+  findElementById("live-label").textContent = translate(snapshot.refreshing ? "status.reading" : "status.automatic",
+    { seconds: numberFormatter.format(5) });
   renderInk(snapshot.ink, snapshot.capabilities);
   renderActivity(snapshot.cups);
   const notices = findElementById("notices");
   notices.replaceChildren();
-  for (const warning of (Array.isArray(snapshot.warnings) ? snapshot.warnings : []).slice(0, 8)) {
+  const warnings = Array.isArray(snapshot.warnings) ? snapshot.warnings : [];
+  const warningDetails = Array.isArray(snapshot.warning_details) ? snapshot.warning_details : [];
+  for (let index = 0; index < Math.min(warnings.length, 8); index += 1) {
+    const warning = warningDetails[index];
+    const identifier = `warning.${warning?.code || "status_detail"}`;
     const line = document.createElement("p");
-    line.textContent = String(warning);
+    line.textContent = translate(dashboardLanguages.en.messages[identifier] ? identifier : "warning.status_detail",
+      warning?.parameters || {});
     notices.append(line);
   }
   notices.hidden = !notices.childElementCount;
-  if (state !== lastState) {
+  if (state !== lastPrinterState) {
     findElementById("announcement").textContent = label;
-    lastState = state;
+    lastPrinterState = state;
   }
 }
 
 function connectionError() {
-  findElementById("printer-state").textContent = "Dashboard connection lost";
-  findElementById("printer-message").textContent = "Waiting to reconnect to the local service. The readings below may be out of date.";
+  connectionUnavailable = true;
+  findElementById("printer-state").textContent = translate("status.connection_lost");
+  findElementById("printer-message").textContent = translate("status.connection_lost_detail");
   findElementById("status-symbol").className = "status-symbol error";
-  findElementById("live-label").textContent = "RECONNECTING…";
-  if (lastState !== "connection-error") findElementById("announcement").textContent = "Dashboard connection lost. Retrying automatically.";
-  lastState = "connection-error";
+  findElementById("live-label").textContent = translate("status.reconnecting");
+  if (lastPrinterState !== "connection-error") {
+    findElementById("announcement").textContent = translate("status.connection_retry");
+  }
+  lastPrinterState = "connection-error";
 }
 
 async function refresh(manual = false) {
@@ -129,7 +247,7 @@ async function refresh(manual = false) {
   if (manual) {
     button.disabled = true;
     button.setAttribute("aria-busy", "true");
-    findElementById("refresh-label").textContent = "Refreshing…";
+    findElementById("refresh-label").textContent = translate("refresh.working");
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
@@ -140,7 +258,7 @@ async function refresh(manual = false) {
     if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) throw new Error("Invalid status data");
     render(snapshot);
     if (manual) {
-      findElementById("announcement").textContent = snapshot.refreshing ? "A fresh printer reading has been requested." : "Printer status refreshed.";
+      findElementById("announcement").textContent = translate(snapshot.refreshing ? "refresh.requested" : "refresh.completed");
       clearTimeout(manualTimer);
       manualTimer = setTimeout(() => refresh(), 1200);
     }
@@ -151,7 +269,7 @@ async function refresh(manual = false) {
     requestActive = false;
     button.disabled = false;
     button.removeAttribute("aria-busy");
-    findElementById("refresh-label").textContent = "Refresh now";
+    findElementById("refresh-label").textContent = translate("refresh.button");
     if (requestQueued) {
       requestQueued = false;
       refresh(true);
@@ -159,6 +277,17 @@ async function refresh(manual = false) {
   }
 }
 
+try {
+  const saved = localStorage.getItem(languageStorageKey);
+  if (saved) languagePreference = saved;
+} catch (_) {
+  // Automatic browser-language detection also works without storage access.
+}
+applyLanguage(languagePreference);
+findElementById("language").addEventListener("change", (event) => applyLanguage(event.target.value, true));
+window.addEventListener("languagechange", () => {
+  if (languagePreference === "auto") applyLanguage("auto");
+});
 findElementById("refresh").addEventListener("click", () => refresh(true));
 document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
 setInterval(() => { if (!document.hidden) refresh(); }, 5000);

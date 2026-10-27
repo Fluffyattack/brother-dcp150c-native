@@ -133,6 +133,7 @@ class StatusResponseParser:
         self._cartridges = _unknown_cartridges()
         self._unknown_tags: list[dict] = []
         self._warnings: list[str] = []
+        self._warning_details: list[dict] = []
 
     @property
     def has_status_fields(self) -> bool:
@@ -150,9 +151,10 @@ class StatusResponseParser:
     def completed_status_frames(self) -> int:
         return self._completed_status_frames
 
-    def _record_warning(self, message: str) -> None:
+    def _record_warning(self, message: str, code: str) -> None:
         if message not in self._warnings and len(self._warnings) < 16:
             self._warnings.append(message)
+            self._warning_details.append({"code": code, "parameters": {}})
 
     def _end_current_frame(self) -> None:
         if self._inside_frame and self._frame_has_status_code:
@@ -212,11 +214,11 @@ class StatusResponseParser:
             self._inside_frame = True
             return
         if not self._inside_frame:
-            self._record_warning("Unframed printer data was ignored.")
+            self._record_warning("Unframed printer data was ignored.", "unframed_status_data")
             return
         match = _STATUS_FIELD.fullmatch(line)
         if not match:
-            self._record_warning("An unrecognized printer status line was ignored.")
+            self._record_warning("An unrecognized printer status line was ignored.", "unrecognized_status_line")
             return
         name, value = match.groups()
         value = value.strip(b" \t")
@@ -288,27 +290,39 @@ class StatusResponseParser:
             counter_within_maximum=current <= maximum if maximum else None,
         )
         if maximum == 0:
-            self._record_warning("A cartridge reported a zero maximum counter; its level remains unknown.")
+            self._record_warning("A cartridge reported a zero maximum counter; its level remains unknown.",
+                                 "cartridge_zero_maximum")
         elif current > maximum:
-            self._record_warning("A cartridge counter exceeded its stated maximum; the original stepped display value is preserved.")
+            self._record_warning("A cartridge counter exceeded its stated maximum; the original stepped display value is preserved.",
+                                 "cartridge_counter_exceeded")
 
     def snapshot(self) -> dict:
         state, message = _STATUS_MESSAGES.get(self._status_code, ("unknown", ""))
+        message_code = {40021: "cover_open", 40022: "paper_jam", 41200: "paper_empty",
+                        40038: "ink_empty"}.get(self._status_code, "status_unknown")
+        message_parameters = {}
         if state == "unknown":
             if self._online is False:
                 state, message = "offline", "The printer reports that it is offline."
+                message_code = "printer_offline"
             elif self._status_code == 10001 and self._online is True:
                 state, message = "ready", "The printer is online and ready."
+                message_code = "printer_ready"
         if not message:
             if self._display:
                 message = self._display
+                message_code = "printer_display"
+                message_parameters = {"display": self._display}
             elif self._status_code is not None:
                 message = f"The printer reported status code {self._status_code}."
+                message_code = "printer_status_code"
+                message_parameters = {"code": self._status_code}
             else:
                 message = "The printer has not returned a recognized status code."
         return {
             "source": STATUS_SOURCE, "hardware_verified": False,
             "code": self._status_code, "state": state, "message": message,
+            "message_code": message_code, "message_parameters": message_parameters,
             "online": self._online,
             "display": self._display,
             "display_raw_hex": self._display_raw.hex() if self._display_raw is not None else None,
@@ -319,17 +333,18 @@ class StatusResponseParser:
             "frames": self.frame_count, "bytes_received": self.total_bytes,
             "complete_ink_and_status": self.has_complete_ink_and_status,
             "unknown_tags": copy.deepcopy(self._unknown_tags), "warnings": list(self._warnings),
+            "warning_details": copy.deepcopy(self._warning_details),
         }
 
     def finish(self) -> dict:
         if not self._finished:
             self._remove_framing_prefix()
             if self._pending_line.strip(b"\r \t"):
-                self._record_warning("An incomplete final printer status line was discarded.")
+                self._record_warning("An incomplete final printer status line was discarded.", "incomplete_status_line")
             self._pending_line.clear()
             self._finished = True
         if len(self._cartridges_seen) < 4:
-            self._record_warning("The printer did not report a level for every cartridge.")
+            self._record_warning("The printer did not report a level for every cartridge.", "incomplete_cartridges")
         return self.snapshot()
 
 
@@ -448,7 +463,8 @@ def read_status_from_open_device(descriptor: int, *, timeout: float = 10.0,
         _write_command_completely(descriptor, ENABLE_STATUS_COMMANDS[1], cartridge_deadline)
         if not read_channel_until_complete(cartridge_deadline, lambda: parser.has_all_cartridges):
             channel_timeouts.append("ink")
-            parser._record_warning("The printer did not report every cartridge before the cartridge-channel timeout.")
+            parser._record_warning("The printer did not report every cartridge before the cartridge-channel timeout.",
+                                   "cartridge_channel_timeout")
 
         status_deadline = min(time.monotonic() + float(timeout), exchange_deadline)
         _write_command_completely(descriptor, DISABLE_STATUS_COMMANDS[1], status_deadline)
@@ -457,7 +473,8 @@ def read_status_from_open_device(descriptor: int, *, timeout: float = 10.0,
         # CODE precedes DISPLAY and ONLINE; finish that frame before stopping.
         if not read_channel_until_complete(status_deadline, lambda: parser.completed_status_frames > previous_status_frames):
             channel_timeouts.append("status")
-            parser._record_warning("The printer did not finish its device-status response before the status-channel timeout.")
+            parser._record_warning("The printer did not finish its device-status response before the status-channel timeout.",
+                                   "status_channel_timeout")
         if not parser.has_status_fields:
             raise TimeoutError("The printer did not return a complete status field before the channel timeouts.")
     except (OSError, StatusProtocolError) as exception:

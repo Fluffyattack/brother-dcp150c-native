@@ -26,11 +26,11 @@ body {
   -webkit-font-smoothing: antialiased
 }
 
-button,a {
+button,a,select {
   -webkit-tap-highlight-color: transparent
 }
 
-button {
+button,select {
   font: inherit
 }
 
@@ -46,7 +46,7 @@ svg {
   stroke-width: 1.6
 }
 
-button:focus-visible,a:focus-visible {
+button:focus-visible,a:focus-visible,select:focus-visible {
   outline: 2px solid var(--accent-color);
   outline-offset: 5px
 }
@@ -57,11 +57,48 @@ button:focus-visible,a:focus-visible {
 }
 
 .topbar {
-  height: 104px;
+  min-height: 104px;
   display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-block: 16px;
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid var(--border-color)
+}
+
+.topbar-tools {
+  display: flex;
+  align-items: center;
+  gap: 22px
+}
+
+.language-control {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-inline-start: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--secondary-text-color)
+}
+
+.language-control svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0
+}
+
+.language-control select {
+  max-width: 140px;
+  min-height: 36px;
+  padding: 5px 7px;
+  background: var(--background-color);
+  color: var(--text-color);
+  border: 0;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer
 }
 
 .brand {
@@ -253,7 +290,7 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 5px;
-  text-align: right;
+  text-align: end;
   white-space: nowrap;
   font-size: 11px;
   color: var(--secondary-text-color)
@@ -289,7 +326,7 @@ h1 {
   color: #6f819c;
   letter-spacing: .13em;
   overflow-wrap: anywhere;
-  text-align: right
+  text-align: end
 }
 
 .ink-grid {
@@ -366,7 +403,7 @@ h1 {
   font-size: 17px;
   font-weight: 400;
   color: var(--secondary-text-color);
-  margin-left: 3px
+  margin-inline-start: 3px
 }
 
 .ink-state {
@@ -583,7 +620,7 @@ footer>span:first-child {
   }
   footer>span:last-child {
     max-width: 230px;
-    text-align: right
+    text-align: end
   }
 }
 
@@ -592,7 +629,8 @@ footer>span:first-child {
     width: calc(100% - 32px)
   }
   .topbar {
-    height: 83px
+    min-height: 83px;
+    gap: 10px
   }
   .brand {
     font-size: 17px
@@ -602,8 +640,7 @@ footer>span:first-child {
     height: 31px
   }
   .local-label {
-    font-size: 0;
-    gap: 0
+    display: none
   }
   .local-dot {
     height: 7px;
@@ -631,8 +668,8 @@ footer>span:first-child {
   }
   .update-time {
     width: 100%;
-    text-align: left;
-    padding-left: 44px;
+    text-align: start;
+    padding-inline-start: 44px;
     font-size: 10px
   }
   .ink-section {
@@ -668,7 +705,7 @@ footer>span:first-child {
   }
   footer>span:last-child {
     max-width: none;
-    text-align: left
+    text-align: start
   }
 }
 

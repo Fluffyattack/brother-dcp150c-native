@@ -51,7 +51,9 @@ jobs:
           bash -n scripts/install.sh scripts/uninstall.sh scripts/build-armv6-toolchain.sh scripts/package-armv6.sh
           sh -n packaging/cups/dcp150c
       - name: Check dashboard JavaScript
-        run: node --check dcp150c/static/app.js
+        run: |
+          node --check dcp150c/static/translations.js
+          node --check dcp150c/static/app.js
       - name: Package binaries with their source and runtime data
         run: scripts/package-armv6.sh
       - name: Upload the Pi package

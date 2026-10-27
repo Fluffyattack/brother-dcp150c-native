@@ -43,6 +43,18 @@ class StatusError(Exception):
     """A failed status read; never evidence that the printer is ready."""
 
 
+def _set_printer_state(result: dict, state: str, message: str, message_code: str,
+                       parameters: dict | None = None) -> None:
+    """Keep the English API text and a stable identifier for translated clients."""
+    result.update(state=state, message=message, message_code=message_code,
+                  message_parameters=parameters or {})
+
+
+def _add_status_warning(result: dict, message: str, code: str) -> None:
+    result["warnings"].append(message)
+    result.setdefault("warning_details", []).append({"code": code, "parameters": {}})
+
+
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
@@ -169,18 +181,20 @@ def _uses_configured_device(attributes: dict, configured_device: Path) -> bool:
 
 
 def _model_polling_obstacle(printers: list[dict], selected_queue: str | None,
-                           configured_device: Path = Path("/dev/usb/lp0")) -> str | None:
+                           configured_device: Path = Path("/dev/usb/lp0")) -> tuple[str, str] | None:
     """Every enabled queue for this model must respect the shared USB lock."""
     selected = next((attributes for attributes in printers
                      if _first(attributes, "printer-name") == selected_queue), None)
     if selected is None or not _uses_shared_backend(selected):
-        return "Ink polling requires a queue installed with the shared dcp150c USB backend."
+        return ("shared_backend_required",
+                "Ink polling requires a queue installed with the shared dcp150c USB backend.")
     for attributes in printers:
         if _first(attributes, "printer-state") == 5:
             continue  # A stopped legacy queue cannot start another print job.
         uses_printer = _is_model_queue(attributes) or _uses_configured_device(attributes, configured_device)
         if uses_printer and not _uses_shared_backend(attributes):
-            return "Ink polling is deferred while another enabled DCP-150C queue bypasses the shared USB lock."
+            return ("another_queue_bypasses_lock",
+                    "Ink polling is deferred while another enabled DCP-150C queue bypasses the shared USB lock.")
     return None
 
 
@@ -358,13 +372,15 @@ class StatusMonitor:
 
     def _blank(self) -> dict:
         return {"model": MODEL, "connected": False, "state": "unknown",
-                "message": "Waiting for the first status poll.", "ink": _unknown_ink(),
+                "message": "Waiting for the first status poll.",
+                "message_code": "waiting_for_reading", "message_parameters": {},
+                "ink": _unknown_ink(),
                 "last_poll": None,
                 "cups": {"available": False, "queue": self.queue, "active": None,
                          "jobs": [], "state": "unknown"},
                 "capabilities": {"ink_percent": False, "ink_stepped": False,
                                  "usb_status": False, "model_status": False},
-                "warnings": []}
+                "warnings": [], "warning_details": []}
 
     def _read_model_status(self, result: dict) -> None:
         """Called only while holding the USB lock and after checking identity."""
@@ -373,27 +389,33 @@ class StatusMonitor:
             if self._stop_requested.is_set():
                 return
             if obstacle:
-                result["warnings"].append(obstacle)
+                code, message = obstacle
+                _add_status_warning(result, message, code)
                 return
             # Recheck after acquiring the lock. A newly queued job takes priority.
             if self.cups.jobs():
-                result["warnings"].append("Ink polling is deferred because a print job has just arrived.")
+                _add_status_warning(result, "Ink polling is deferred because a print job has just arrived.",
+                                    "new_print_job")
                 return
             if self._stop_requested.is_set():
                 return
             model_status = query_printer_status(str(self.device), timeout=self.timeout)
         except StatusError:
-            result["warnings"].append("Ink polling was skipped because current printing activity could not be checked.")
+            _add_status_warning(result, "Ink polling was skipped because current printing activity could not be checked.",
+                                "ink_activity_check_failed")
             return
         except StatusTransportError as exception:
-            result["warnings"].append(str(exception))
-            result["warnings"].extend(exception.cleanup_errors)
-            result.update(state="unknown", message="The printer status request could not be completed.")
+            _add_status_warning(result, str(exception), "status_exchange_failed")
+            for message in exception.cleanup_errors:
+                _add_status_warning(result, message, "status_cleanup_failed")
+            _set_printer_state(result, "unknown", "The printer status request could not be completed.",
+                               "status_request_incomplete")
             if exception.partial_status is not None:
                 self._merge_model_status(result, exception.partial_status, exchange_complete=False)
             return
         except OSError:
-            result["warnings"].append("The printer's bidirectional ink query could not be completed.")
+            _add_status_warning(result, "The printer's bidirectional ink query could not be completed.",
+                                "ink_query_failed")
             return
         self._merge_model_status(result, model_status, exchange_complete=True)
 
@@ -410,13 +432,21 @@ class StatusMonitor:
             reading.get("granularity") == "stepped" and reading["percent"] is not None
             for reading in result["ink"].values())
         if model_status["state"] != "unknown":
-            result.update(state=model_status["state"], message=model_status["message"])
+            _set_printer_state(result, model_status["state"], model_status["message"],
+                               model_status.get("message_code", "status_unknown"),
+                               model_status.get("message_parameters"))
         elif model_status["code"] is not None or model_status["display"]:
             # An unfamiliar model status must not be hidden by a generic ready bit.
-            result.update(state="unknown", message=model_status["message"])
-        result["warnings"].extend(model_status["warnings"])
+            _set_printer_state(result, "unknown", model_status["message"],
+                               model_status.get("message_code", "status_unknown"),
+                               model_status.get("message_parameters"))
+        warning_details = model_status.get("warning_details", [])
+        for index, message in enumerate(model_status["warnings"]):
+            code = warning_details[index]["code"] if index < len(warning_details) else "status_detail"
+            _add_status_warning(result, message, code)
         if not model_status.get("hardware_verified"):
-            result["warnings"].append("This model response has not been verified through the printer connection.")
+            _add_status_warning(result, "This model response has not been verified through the printer connection.",
+                                "model_response_unverified")
 
     def cancel_pending_poll(self) -> None:
         """Finish an in-flight exchange, but do not start another USB operation."""
@@ -436,9 +466,12 @@ class StatusMonitor:
         result["last_poll"] = _utc_now()
         devices = _usb_devices(self.sysfs_root)
         result["connected"] = bool(devices)
-        result["state"] = "unknown" if devices else "offline"
-        result["message"] = ("USB printer detected; status has not been queried."
-                             if devices else "DCP-150C is disconnected or switched off.")
+        if devices:
+            _set_printer_state(result, "unknown", "USB printer detected; status has not been queried.",
+                               "usb_detected")
+        else:
+            _set_printer_state(result, "offline", "DCP-150C is disconnected or switched off.",
+                               "printer_disconnected")
         attributes = {}
         try:
             if self.queue:
@@ -448,7 +481,8 @@ class StatusMonitor:
                 if len(matches) == 1:
                     attributes = matches[0]
                 elif len(matches) > 1:
-                    result["warnings"].append("Multiple DCP-150C print queues were found; choose one in the dashboard settings.")
+                    _add_status_warning(result, "Multiple DCP-150C print queues were found; choose one in the dashboard settings.",
+                                        "multiple_queues")
             queue = _first(attributes, "printer-name", self.queue)
             if self._stop_requested.is_set():
                 return result
@@ -465,24 +499,30 @@ class StatusMonitor:
                 result["capabilities"]["ink_percent"] = any(
                     item["percent"] is not None for item in result["ink"].values())
                 if result["capabilities"]["ink_percent"]:
-                    result["warnings"].append("Ink values come from the print service and may be saved from an earlier reading.")
+                    _add_status_warning(result, "Ink values come from the print service and may be saved from an earlier reading.",
+                                        "cached_ink_readings")
             if active or jobs:
                 if devices:
                     if active:
-                        result.update(state="printing", message="Print jobs are active; printer status requests will wait.")
+                        _set_printer_state(result, "printing", "Print jobs are active; printer status requests will wait.",
+                                           "printing_active")
                     else:
-                        result.update(state="busy", message="Another print queue has active jobs; printer status requests will wait.")
-                result["warnings"].append("Printer status requests wait while print jobs are active.")
+                        _set_printer_state(result, "busy", "Another print queue has active jobs; printer status requests will wait.",
+                                           "another_queue_active")
+                _add_status_warning(result, "Printer status requests wait while print jobs are active.",
+                                    "printing_defers_status")
                 return result
         except StatusError as exc:
-            result["warnings"].append(str(exc))
-            result["warnings"].append("Printer status requests wait because printing activity could not be checked.")
+            _add_status_warning(result, str(exc), "print_service_unavailable")
+            _add_status_warning(result, "Printer status requests wait because printing activity could not be checked.",
+                                "activity_check_failed")
             return result
 
         if not devices or self._stop_requested.is_set():
             return result
         if not _matching_node(self.device, self.sysfs_root, devices):
-            result["warnings"].append("The configured USB printer device is unavailable or belongs to a different model.")
+            _add_status_warning(result, "The configured USB printer device is unavailable or belongs to a different model.",
+                                "usb_device_mismatch")
             return result
 
         lock_descriptor = None
@@ -495,7 +535,8 @@ class StatusMonitor:
             try:
                 fcntl.flock(lock_descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError:
-                result.update(state="busy", message="Printer USB connection is in use; polling is deferred.")
+                _set_printer_state(result, "busy", "Printer USB connection is in use; polling is deferred.",
+                                   "usb_connection_busy")
                 return result
 
             # The native backend shares the flock, so a job queued after the
@@ -506,26 +547,30 @@ class StatusMonitor:
             result["capabilities"]["usb_status"] = True
             result["usb"] = {"port_status": status, "source": "linux-usblp"}
             if status & 0x20:
-                result.update(state="error", message="Printer reports that paper is empty.")
+                _set_printer_state(result, "error", "Printer reports that paper is empty.", "paper_empty")
             elif not status & 0x08:
-                result.update(state="error", message="Printer reports an error; check its control panel.")
+                _set_printer_state(result, "error", "Printer reports an error; check its control panel.",
+                                   "printer_error")
             elif not status & 0x10:
-                result.update(state="offline", message="Printer is not selected/online.")
+                _set_printer_state(result, "offline", "Printer is not selected/online.", "printer_offline")
             else:
-                result.update(state="ready", message="USB printer-class status reports ready.")
+                _set_printer_state(result, "ready", "USB printer-class status reports ready.", "printer_ready")
             if self.enable_model_status and not self._stop_requested.is_set():
                 self._read_model_status(result)
             if not result["capabilities"]["ink_percent"]:
-                result["warnings"].append("Ink levels are unavailable from the current status sources.")
+                _add_status_warning(result, "Ink levels are unavailable from the current status sources.",
+                                    "ink_unavailable")
         except OSError as exc:
             if exc.errno in (errno.EACCES, errno.EPERM):
-                result["warnings"].append("The dashboard does not have permission to use the printer connection.")
+                _add_status_warning(result, "The dashboard does not have permission to use the printer connection.",
+                                    "usb_permission_denied")
             elif exc.errno in (errno.ENOENT, errno.ENODEV):
-                result["warnings"].append("The shared printer connection is unavailable.")
+                _add_status_warning(result, "The shared printer connection is unavailable.", "usb_unavailable")
             elif exc.errno == errno.EBUSY:
-                result.update(state="busy", message="Printer USB connection is busy; polling is deferred.")
+                _set_printer_state(result, "busy", "Printer USB connection is busy; polling is deferred.",
+                                   "usb_connection_busy")
             else:
-                result["warnings"].append("USB printer-class status query failed.")
+                _add_status_warning(result, "USB printer-class status query failed.", "usb_status_failed")
         finally:
             if lock_descriptor is not None:
                 os.close(lock_descriptor)

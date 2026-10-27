@@ -8,7 +8,7 @@ The software includes:
 
 - A portable C program that converts page pixels into DCP-150C printer commands, without running an x86 driver through an emulator.
 - Integration with the Common UNIX Printing System (CUPS), including PDF/PostScript rendering, six quality settings and a separate printer queue.
-- A small dashboard with printing activity, connection status and available ink information. It runs without Python package dependencies.
+- A small dashboard in German and English with printing activity, connection status and available ink information. It runs without Python package dependencies.
 - A configuration tool with readable options and installation/removal scripts that preserve existing printer settings.
 
 ## Get started on the Pi
@@ -41,6 +41,18 @@ python3 -m dcp150c --queue YOUR_EXISTING_QUEUE
 ```
 
 Unavailable ink readings appear as unknown. Status requests wait while the printer connection is in use.
+
+## Dashboard languages
+
+The dashboard supports **English and German**. It automatically chooses the first supported language in the browser's language preferences, including regional variants such as `de-AT` and `en-GB`. Other languages fall back to English.
+
+Use the language selector at the top of the page to choose a language. The browser remembers the choice for that dashboard address; select **Automatic / Automatisch** to follow the browser again. Switching language updates the displayed readings immediately without requesting another USB reading. If browser storage is disabled, the selector still works for the current page.
+
+Translations cover status and error messages, cartridge states, print-job counts, screen-reader labels and the page title. Times and percentages follow the selected language's formatting. Printer display text, queue names and job identifiers retain their original content.
+
+To add another language, copy an entry in [`dcp150c/static/translations.js`](dcp150c/static/translations.js), use its standard language tag as the key and translate the messages. Keep identifiers and `{parameter}` names unchanged. Set `direction` to `rtl` for a language written from right to left and add any needed plural categories such as `activity.active_jobs.few`; counts use the browser's language-specific plural rules. Missing messages fall back to English. No server dependency or build step is required.
+
+The status API keeps its existing English `message` and `warnings` fields for compatibility. `message_code`, `message_parameters` and `warning_details` provide stable identifiers and parameters for translated clients.
 
 ## Try native printing
 

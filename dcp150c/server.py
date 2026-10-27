@@ -29,18 +29,22 @@ STATIC_ROOT = Path(__file__).with_name("static")
 ASSETS = {
     "/": ("index.html", "text/html; charset=utf-8"),
     "/assets/app.js": ("app.js", "text/javascript; charset=utf-8"),
+    "/assets/translations.js": ("translations.js", "text/javascript; charset=utf-8"),
     "/assets/styles.css": ("styles.css", "text/css; charset=utf-8"),
     "/favicon.svg": ("favicon.svg", "image/svg+xml"),
 }
 
 
-def unavailable_snapshot(message: str = "Waiting for the first printer reading.") -> dict[str, Any]:
+def unavailable_snapshot(message: str = "Waiting for the first printer reading.",
+                         message_code: str = "waiting_for_reading") -> dict[str, Any]:
     """Return unknown readings without representing them as empty cartridges."""
     return {
         "model": "Brother DCP-150C",
         "connected": False,
         "state": "unknown",
         "message": message,
+        "message_code": message_code,
+        "message_parameters": {},
         "ink": {
             key: {"percent": None, "state": "unknown", "label": label}
             for key, label in (("c", "Cyan"), ("m", "Magenta"), ("y", "Yellow"), ("k", "Black"))
@@ -49,6 +53,7 @@ def unavailable_snapshot(message: str = "Waiting for the first printer reading."
         "cups": {"available": False, "queue": None, "active": None, "jobs": [], "state": "unknown"},
         "capabilities": {"ink_percent": False, "usb_status": False},
         "warnings": [],
+        "warning_details": [],
     }
 
 
@@ -109,8 +114,9 @@ class StatusPoller:
                     raise ValueError("status snapshot exceeded the response limit")
             except Exception:
                 LOG.exception("Printer status poll failed")
-                result = unavailable_snapshot("Printer status is temporarily unavailable.")
+                result = unavailable_snapshot("Printer status is temporarily unavailable.", "status_unavailable")
                 result["warnings"] = ["The last status request failed. It will be retried automatically."]
+                result["warning_details"] = [{"code": "status_retry", "parameters": {}}]
             with self._guard:
                 self._latest = result
                 self._refreshing = False
