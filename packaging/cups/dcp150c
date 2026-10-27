@@ -1,0 +1,40 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# CUPS backend: preserve the standard USB transport and serialize all USB I/O.
+set -eu
+usb_backend=$(dirname "$0")/usb
+if [ ! -x "$usb_backend" ]; then
+    echo 'ERROR: The standard CUPS USB backend is not installed.' >&2
+    exit 4
+fi
+
+if [ "$#" -eq 0 ]; then
+    "$usb_backend" | while IFS= read -r line; do
+        case "$line" in
+            direct\ usb://Brother/DCP-150C\?*|direct\ usb://Brother/DCP-150C\ *)
+                printf 'direct dcp150c:%s\n' "${line#direct }"
+                ;;
+        esac
+    done
+    exit 0
+fi
+
+case "${DEVICE_URI-}" in
+    dcp150c:usb://Brother/DCP-150C|dcp150c:usb://Brother/DCP-150C\?*)
+        DEVICE_URI=${DEVICE_URI#dcp150c:}
+        export DEVICE_URI
+        ;;
+    *)
+        echo 'ERROR: This backend requires a dcp150c:usb://Brother/DCP-150C URI.' >&2
+        exit 4
+        ;;
+esac
+
+lock=/run/lock/dcp150c-device.lock
+if [ ! -f "$lock" ] || [ -L "$lock" ]; then
+    echo 'ERROR: The printer lock is missing or unsafe; reinstall dcp150c-native.' >&2
+    exit 4
+fi
+
+# --no-fork keeps CUPS side/backchannel descriptors and cancellation semantics.
+exec /usr/bin/flock --exclusive --no-fork "$lock" "$usb_backend" "$@"

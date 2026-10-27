@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="Local printer status and ink information for your Brother DCP-150C.">
+  <title>Brother DCP-150C · Printer status</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <script src="/assets/app.js" defer></script>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Brother DCP-150C printer status home">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M9 11V4h14v7M9 24H5V12h22v12h-4M9 19h14v9H9z"/><path d="M22 15h1"/></svg>
+        <span>DCP-150C<span class="brand-sub">PRINTER STATUS</span></span>
+      </a>
+      <span class="local-label"><span class="local-dot"></span> Local connection</span>
+    </header>
+
+    <main>
+      <div class="page-intro">
+        <div>
+          <p class="eyebrow">BROTHER · INKJET</p>
+          <h1>Your printer, at a glance.</h1>
+          <p class="intro-copy">Ink information and printing activity, right here on your network.</p>
+        </div>
+        <button id="refresh" class="refresh-button" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 11-1l3 3M4 15l3 3a7 7 0 0 0 11-1"/></svg>
+          <span id="refresh-label">Refresh now</span>
+        </button>
+      </div>
+
+      <section class="status-strip" aria-label="Printer connection">
+        <div class="status-symbol" id="status-symbol" aria-hidden="true"><span></span></div>
+        <div class="status-copy">
+          <h2 id="printer-state">Connecting to your printer</h2>
+          <p id="printer-message">Waiting for the first status reading.</p>
+        </div>
+        <div class="update-time"><span id="live-label">AUTO REFRESH · 5 SEC</span><span id="last-updated">No reading yet</span></div>
+      </section>
+
+      <section class="ink-section" aria-labelledby="ink-heading">
+        <div class="section-heading"><h2 id="ink-heading">Ink cartridges</h2><span>CMYK</span></div>
+        <div class="ink-grid">
+          <article class="ink-card cyan" data-ink="c">
+            <div class="ink-card-top"><span class="ink-dot"></span><span class="ink-code" aria-hidden="true">C</span></div>
+            <h3>Cyan</h3><div class="ink-reading" id="ink-value-c">—</div>
+            <progress id="ink-progress-c" max="100" value="0" aria-label="Cyan ink level" hidden></progress>
+            <div class="unknown-track" id="ink-unknown-c" aria-hidden="true"></div>
+            <p class="ink-state" id="ink-state-c">No reading yet</p>
+          </article>
+          <article class="ink-card magenta" data-ink="m">
+            <div class="ink-card-top"><span class="ink-dot"></span><span class="ink-code" aria-hidden="true">M</span></div>
+            <h3>Magenta</h3><div class="ink-reading" id="ink-value-m">—</div>
+            <progress id="ink-progress-m" max="100" value="0" aria-label="Magenta ink level" hidden></progress>
+            <div class="unknown-track" id="ink-unknown-m" aria-hidden="true"></div>
+            <p class="ink-state" id="ink-state-m">No reading yet</p>
+          </article>
+          <article class="ink-card yellow" data-ink="y">
+            <div class="ink-card-top"><span class="ink-dot"></span><span class="ink-code" aria-hidden="true">Y</span></div>
+            <h3>Yellow</h3><div class="ink-reading" id="ink-value-y">—</div>
+            <progress id="ink-progress-y" max="100" value="0" aria-label="Yellow ink level" hidden></progress>
+            <div class="unknown-track" id="ink-unknown-y" aria-hidden="true"></div>
+            <p class="ink-state" id="ink-state-y">No reading yet</p>
+          </article>
+          <article class="ink-card black" data-ink="k">
+            <div class="ink-card-top"><span class="ink-dot"></span><span class="ink-code" aria-hidden="true">K</span></div>
+            <h3>Black</h3><div class="ink-reading" id="ink-value-k">—</div>
+            <progress id="ink-progress-k" max="100" value="0" aria-label="Black ink level" hidden></progress>
+            <div class="unknown-track" id="ink-unknown-k" aria-hidden="true"></div>
+            <p class="ink-state" id="ink-state-k">No reading yet</p>
+          </article>
+        </div>
+        <p class="ink-note" id="ink-note">Only information reported by the printer is shown. An unknown level does not mean an empty cartridge.</p>
+      </section>
+
+      <section class="activity-panel" aria-labelledby="activity-heading">
+        <div class="section-heading"><h2 id="activity-heading">Print activity</h2><span id="queue-name">CUPS QUEUE</span></div>
+        <div class="activity-summary"><span class="activity-icon" aria-hidden="true">↳</span><div><h3 id="activity-title">Checking print queue</h3><p id="activity-detail">Your printing activity will appear here.</p></div><span class="activity-count" id="job-count">—</span></div>
+        <ul id="job-list" class="job-list" aria-label="Active print jobs" hidden></ul>
+      </section>
+
+      <aside id="notices" class="notices" aria-label="Status information" hidden></aside>
+      <p id="announcement" class="sr-only" role="status" aria-live="polite"></p>
+      <noscript><p class="noscript">Enable JavaScript to display live printer readings. The current status is also available as JSON at <a href="/api/ink">/api/ink</a>.</p></noscript>
+    </main>
+
+    <footer><span>Brother DCP-150C Native</span><span>Printer queries wait while a print job is using USB.</span></footer>
+  </div>
+</body>
+</html>

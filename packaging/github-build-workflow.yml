@@ -1,0 +1,61 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install cross compiler
+        run: sudo apt-get update && sudo apt-get install -y gcc-arm-linux-gnueabihf qemu-user
+      - name: Build host tools
+        run: make
+      - name: Build ARMv6 tools
+        run: make armv6
+      - name: Execute on the original Pi Zero CPU model
+        run: |
+          qemu-arm -cpu arm1176 build/armv6/brprintconf_dcp150c --get -rc config/default.conf
+          python3 - <<'PY'
+          import json
+          import subprocess
+          executable = ['qemu-arm', '-cpu', 'arm1176', 'build/armv6/bh7filter']
+          result = subprocess.run(executable + ['--capabilities'], check=True, capture_output=True, timeout=10)
+          assert json.loads(result.stdout)['native_raster'] is True
+          invalid_page = b'P6\n1 1\n255\n' + b'\xff' * 3
+          result = subprocess.run(executable + ['--data-dir', 'data', '-pi', 'config/paperinf',
+                                  '-rc', 'config/default.conf'], input=invalid_page, capture_output=True, timeout=10)
+          assert result.returncode == 1 and not result.stdout and b'ERROR:' in result.stderr
+          PY
+      - name: Compare complete color-page output on both CPUs
+        run: |
+          build/brprintconf_dcp150c -rc "$RUNNER_TEMP/check.conf" --resolution Draft --paper-size PhotoL
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          page = b'P6\n466 691\n255\n' + bytes((0, 255, 255)) * (466 * 691)
+          (Path(os.environ['RUNNER_TEMP']) / 'page.ppm').write_bytes(page)
+          PY
+          build/bh7filter --data-dir data -pi config/paperinf -rc "$RUNNER_TEMP/check.conf" "$RUNNER_TEMP/page.ppm" > "$RUNNER_TEMP/host.prn"
+          qemu-arm -cpu arm1176 build/armv6/bh7filter --data-dir data -pi config/paperinf -rc "$RUNNER_TEMP/check.conf" "$RUNNER_TEMP/page.ppm" > "$RUNNER_TEMP/armv6.prn"
+          cmp "$RUNNER_TEMP/host.prn" "$RUNNER_TEMP/armv6.prn"
+      - name: Check Python and shell syntax
+        run: |
+          python3 -m compileall -q dcp150c
+          python3 -m py_compile packaging/cups/dcp150c-filter
+          bash -n scripts/install.sh scripts/uninstall.sh scripts/build-armv6-toolchain.sh scripts/package-armv6.sh
+          sh -n packaging/cups/dcp150c
+      - name: Check dashboard JavaScript
+        run: node --check dcp150c/static/app.js
+      - name: Package binaries with their source and runtime data
+        run: scripts/package-armv6.sh
+      - name: Upload the Pi package
+        uses: actions/upload-artifact@v4
+        with:
+          name: raspberry-pi-armv6
+          path: build/releases/*

@@ -1,0 +1,35 @@
+[Unit]
+Description=Brother DCP-150C local printer dashboard
+After=network.target cups.service
+Wants=cups.service
+
+[Service]
+Type=simple
+User=dcp150c
+Group=dcp150c
+Environment=PYTHONPATH=/usr/lib/dcp150c-native
+Environment=PYTHONUNBUFFERED=1
+Environment=DCP150C_LOCK_PATH=/run/lock/dcp150c-device.lock
+Environment=DCP150C_CONFIG_DIR=/etc/dcp150c-native
+Environment=DCP150C_DATA_DIR=/usr/share/dcp150c-native
+EnvironmentFile=-/etc/dcp150c-native/queue.env
+EnvironmentFile=-/etc/dcp150c-native/dashboard.env
+ExecStart=/usr/bin/python3 -m dcp150c --host 0.0.0.0 --port 8080
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=90
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ReadWritePaths=/run/lock/dcp150c-device.lock
+MemoryMax=96M
+TasksMax=32
+
+[Install]
+WantedBy=multi-user.target

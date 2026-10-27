@@ -1,0 +1,3 @@
+# Brother DCP-150C. Match this model only; the dashboard needs no root account.
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="04f9", ATTR{idProduct}=="01cf", GROUP="dcp150c", MODE="0660"
+SUBSYSTEM=="usbmisc", KERNEL=="lp[0-9]*", ATTRS{idVendor}=="04f9", ATTRS{idProduct}=="01cf", GROUP="dcp150c", MODE="0660"

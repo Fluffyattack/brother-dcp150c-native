@@ -1,0 +1,312 @@
+#!/usr/bin/python3
+"""CUPS PDF/PostScript to native BH7 filter. SPDX-License-Identifier: GPL-2.0-or-later."""
+
+import hashlib
+import json
+import os
+from pathlib import Path
+import shlex
+import signal
+import stat
+import subprocess
+import sys
+import tempfile
+
+
+DATA = Path("/usr/share/dcp150c-native")
+CONFIG = Path("/etc/dcp150c-native/default.conf")
+FILTER = Path("/usr/lib/dcp150c-native/bh7filter")
+UNVERIFIED_FILTER_APPROVAL = Path("/etc/dcp150c-native/allow-unverified-filter")
+GHOSTSCRIPT = "/usr/bin/gs"
+
+SELECTIONS = {
+    "Media": {"Plain", "Inkjet", "BrotherGlossy", "Glossy", "Transparencies"},
+    "RResolution": {"Draft", "Fast", "Normal", "Fine", "Photo", "Highest"},
+    "BiDirPrint": {"OFF", "ON"},
+    "MirrorPrint": {"OFF", "ON"},
+    "PaperThick": {"Regular", "Thick"},
+    "PaperSource": {"AUTO", "Tray1", "Tray2"},
+    "ColorOrMono": {"Color", "Mono"},
+    "Document": {"Photo", "Graphics", "Custom"},
+    "ColorMatch": {"Natural", "Vivid", "None"},
+    "HalfTone": {"Diffusion", "Dither"},
+    "ColorEnhance": {"OFF", "ON"},
+    "SlowDrying": {"OFF", "ON"},
+}
+NUMERICAL = {"Brightness", "Contrast", "RedKey", "GreenKey", "BlueKey"}
+QUALITY_DPI = {"Draft": "150", "Fast": "300", "Normal": "600", "Fine": "600", "Photo": "600", "Highest": "600"}
+MEDIA_QUALITIES = {
+    "Plain": {"Draft", "Fast", "Normal", "Fine"},
+    "Inkjet": {"Fine", "Photo"},
+    "BrotherGlossy": {"Fine", "Photo", "Highest"},
+    "Glossy": {"Fine", "Photo", "Highest"},
+    "Transparencies": {"Normal", "Fine"},
+}
+
+
+class FilterError(Exception):
+    pass
+
+
+class JobCancelled(FilterError):
+    pass
+
+
+def read_config(path):
+    settings = {}
+    section = None
+    found_printer_section = False
+    known_settings = set(SELECTIONS) | NUMERICAL | {"PaperType", "Resolution", "Copies", "Collate"}
+    for line_number, line in enumerate(path.read_text(encoding="utf-8-sig").splitlines(), 1):
+        line = line.strip()
+        if not line or line.startswith(("#", ";")):
+            continue
+        if line.startswith("["):
+            end = line.find("]")
+            section_name = line[1:end].strip() if end >= 0 else ""
+            trailing = line[end + 1:].strip() if end >= 0 else ""
+            if not section_name or (trailing and not trailing.startswith(("#", ";"))):
+                raise FilterError(f"Printer configuration line {line_number} has a malformed section")
+            section = section_name.upper()
+            if section == "DCP150C":
+                if found_printer_section:
+                    raise FilterError("Printer configuration repeats the DCP150C section")
+                found_printer_section = True
+            continue
+        if "=" not in line or section is None:
+            raise FilterError(f"Printer configuration line {line_number} must contain a setting inside a named section")
+        key, value = line.split("=", 1)
+        key, value = key.strip(), value.strip()
+        if not key:
+            raise FilterError(f"Printer configuration line {line_number} has an empty setting name")
+        if section == "DCP150C":
+            if key in settings and key in known_settings:
+                raise FilterError("Printer configuration repeats the setting " + key)
+            settings[key] = value
+    if not found_printer_section:
+        raise FilterError("Printer configuration does not contain a DCP150C section")
+    return settings
+
+
+def read_papers(path):
+    papers = {}
+    for line in path.read_text(encoding="ascii").splitlines():
+        if not line or line.startswith("#"):
+            continue
+        name, values = line.split(":", 1)
+        width, height = map(int, values.split())
+        if width <= 0 or height <= 0:
+            raise FilterError("Invalid paper geometry")
+        papers[name] = (width, height)
+    return papers
+
+
+def job_config(defaults, options, papers):
+    settings = defaults.copy()
+    explicit_dpi = None
+    # Options are tokenized, never evaluated as shell commands or PostScript.
+    for token in shlex.split(options):
+        if "=" not in token:
+            continue
+        name, value = token.split("=", 1)
+        if name in {"PageSize", "PageRegion", "media"}:
+            paper = value.split(",", 1)[0]
+            if paper not in papers:
+                raise FilterError("Unsupported paper size")
+            settings["PaperType"] = paper
+        elif name == "InputResolution":
+            if value not in {"150dpi", "300dpi", "600dpi"}:
+                raise FilterError("Unsupported raster input resolution")
+            explicit_dpi = value[:-3]
+        elif name in {"PrintQuality", "Resolution"}:
+            quality = {"150dpi": "Draft", "300dpi": "Fast", "600dpi": "Normal"}.get(value, value)
+            if quality not in SELECTIONS["RResolution"]:
+                raise FilterError("Unsupported print quality")
+            settings["RResolution"] = quality
+        elif name in {"ColorModel", "print-color-mode"}:
+            modes = {"RGB": "Color", "Gray": "Mono", "color": "Color", "monochrome": "Mono"}
+            if value not in modes:
+                raise FilterError("Unsupported color mode")
+            settings["ColorOrMono"] = modes[value]
+        elif name in SELECTIONS:
+            if value not in SELECTIONS[name]:
+                raise FilterError("Invalid printer option: " + name)
+            settings[name] = value
+        elif name in NUMERICAL:
+            try:
+                number = int(value)
+            except ValueError as exc:
+                raise FilterError("Invalid numerical printer option") from exc
+            if number < -20 or number > 20:
+                raise FilterError("Printer adjustment must be between -20 and 20")
+            settings[name] = str(number)
+    if settings.get("PaperType") not in papers:
+        raise FilterError("Configured paper size is unsupported")
+    if settings.get("Resolution") not in {"150", "300", "600"}:
+        raise FilterError("Configured raster resolution is unsupported")
+    for key, choices in SELECTIONS.items():
+        if settings.get(key) not in choices:
+            raise FilterError("Invalid configured value: " + key)
+    for key in NUMERICAL:
+        try:
+            number = int(settings.get(key, "0"))
+        except ValueError as exc:
+            raise FilterError("Invalid configured adjustment") from exc
+        if not -20 <= number <= 20:
+            raise FilterError("Invalid configured adjustment")
+    if settings["RResolution"] not in MEDIA_QUALITIES[settings["Media"]]:
+        allowed = ", ".join(quality for quality in QUALITY_DPI if quality in MEDIA_QUALITIES[settings["Media"]])
+        raise FilterError(f"The selected paper material supports these print qualities: {allowed}")
+    # The native driver consumes a different input raster size for each quality.
+    # An independent DPI setting produces malformed input even when the PPM is valid.
+    dpi = QUALITY_DPI[settings["RResolution"]]
+    if explicit_dpi is not None and explicit_dpi != dpi:
+        raise FilterError("Input resolution does not match the selected print quality")
+    settings["Resolution"] = dpi
+    # The CUPS copy count is handled here, without modifying global config.
+    settings["Copies"] = "1"
+    settings["Collate"] = "OFF"
+    return settings
+
+
+def preview_build_is_approved(capabilities):
+    qualities = capabilities.get("qualities")
+    if (capabilities.get("production_ready") is not False
+            or capabilities.get("model") != "Brother DCP-150C"
+            or capabilities.get("native_raster") is not True
+            or not isinstance(qualities, list)
+            or not all(isinstance(quality, str) for quality in qualities)
+            or not set(QUALITY_DPI).issubset(qualities)):
+        return False
+    try:
+        descriptor = os.open(UNVERIFIED_FILTER_APPROVAL, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(descriptor, "r", encoding="ascii") as source:
+            information = os.fstat(source.fileno())
+            if not stat.S_ISREG(information.st_mode) or information.st_uid != 0 or information.st_mode & 0o022:
+                return False
+            text = source.read(4097)
+            if len(text) > 4096:
+                return False
+            approval = json.loads(text)
+        if not isinstance(approval, dict) or approval.get("format") != 1 or approval.get("model") != "Brother DCP-150C":
+            return False
+        checksum = hashlib.sha256()
+        with FILTER.open("rb") as source:
+            for block in iter(lambda: source.read(65536), b""):
+                checksum.update(block)
+        return approval.get("filter_sha256") == checksum.hexdigest()
+    except (OSError, ValueError, UnicodeError):
+        return False
+
+
+def check_filter():
+    try:
+        result = subprocess.run(
+            [str(FILTER), "--capabilities"], capture_output=True,
+            timeout=5, check=True,
+        )
+        capabilities = json.loads(result.stdout)
+    except (OSError, subprocess.SubprocessError, ValueError) as exc:
+        raise FilterError("Native raster filter is unavailable") from exc
+    if isinstance(capabilities, dict):
+        if capabilities.get("production_ready") is True or preview_build_is_approved(capabilities):
+            return
+    raise FilterError("Native raster filter has not passed production verification and has no approval for this preview build")
+
+
+def geometry(settings, papers):
+    paper = settings["PaperType"]
+    full_width, full_height = papers[paper]
+    dpi = int(settings["Resolution"])
+    width = full_width * dpi // 600
+    height = full_height * dpi // 600
+    prologue = None
+    if not paper.endswith("_B"):
+        # Hardware printable-area transform used by the original pipeline.
+        right = full_width * 72 // 600 + 14
+        top = full_height * 72 // 600 + 14
+        prologue = f"<</ImagingBBox [14 14 {right} {top}] /PageOffset [-14 14]>> setpagedevice"
+    return dpi, width, height, prologue
+
+
+def stop_process(process):
+    if process is None:
+        return
+    if process.poll() is None:
+        process.terminate()
+    try:
+        process.wait(timeout=3)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+
+
+def convert(source, config, settings, papers):
+    dpi, width, height, prologue = geometry(settings, papers)
+    command = [GHOSTSCRIPT, "-q", "-dNOPROMPT", "-dNOPAUSE", "-dBATCH", "-dSAFER", "-dFIXEDMEDIA",
+               "-sDEVICE=ppmraw", f"-r{dpi}", f"-g{width}x{height}", "-sOutputFile=-"]
+    if prologue:
+        command.extend(["-c", prologue])
+    command.extend(["-f", str(source)])
+    environment = os.environ.copy()
+    environment["DCP150C_DATA_DIR"] = str(DATA)
+    renderer = raster = None
+    try:
+        renderer = subprocess.Popen(command, stdout=subprocess.PIPE)
+        raster = subprocess.Popen(
+            [str(FILTER), "-pi", str(DATA / "paperinf"), "-rc", str(config)],
+            stdin=renderer.stdout, env=environment,
+        )
+        renderer.stdout.close()
+        raster_status = raster.wait()
+        renderer_status = renderer.wait()
+        if raster_status or renderer_status:
+            raise FilterError(f"Rendering failed (Ghostscript {renderer_status}, raster filter {raster_status})")
+    finally:
+        stop_process(raster)
+        stop_process(renderer)
+
+
+def main(argv):
+    if len(argv) not in {6, 7}:
+        raise FilterError("CUPS filter expects job-id user title copies options [filename]")
+    try:
+        copies = int(argv[4])
+    except ValueError as exc:
+        raise FilterError("Invalid CUPS copy count") from exc
+    if copies < 1:
+        raise FilterError("Invalid CUPS copy count")
+    check_filter()
+    papers = read_papers(DATA / "paperinf")
+    settings = job_config(read_config(CONFIG), argv[5], papers)
+    with tempfile.TemporaryDirectory(prefix="dcp150c-job-") as temp:
+        temp = Path(temp)
+        rcfile = temp / "job.conf"
+        rcfile.write_text("[DCP150C]\n" + "".join(f"{k}={v}\n" for k, v in settings.items()), encoding="utf-8")
+        if len(argv) == 7:
+            source = Path(argv[6]).resolve()
+        else:
+            source = temp / "document"
+            with source.open("wb") as output:
+                while True:
+                    block = sys.stdin.buffer.read(65536)
+                    if not block:
+                        break
+                    output.write(block)
+        for _ in range(copies):
+            convert(source, rcfile, settings, papers)
+    return 0
+
+
+def cancelled(signum, frame):
+    raise JobCancelled("Print job cancelled")
+
+
+if __name__ == "__main__":
+    signal.signal(signal.SIGTERM, cancelled)
+    signal.signal(signal.SIGINT, cancelled)
+    try:
+        sys.exit(main(sys.argv))
+    except (FilterError, OSError, ValueError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        sys.exit(1)
