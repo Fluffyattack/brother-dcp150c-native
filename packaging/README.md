@@ -25,7 +25,7 @@ Dashboard settings go in `/etc/dcp150c-native/dashboard.env`. The installer pres
 DCP150C_MODEL_STATUS=0
 ```
 
-That setting stays off until hardware testing is complete. Enabling it later also requires this project's CUPS backend, no queued print jobs, an identified DCP-150C and exclusive access to the shared device lock. Queue information and any available CUPS ink markers remain accessible with the setting off.
+The connected test printer did not return ink counters, so model-specific polling remains experimental and stays off by default. Enabling it requires this project's CUPS backend, no queued print jobs, an identified DCP-150C and exclusive access to the shared device lock. Queue information and any available CUPS ink markers remain accessible with the setting off.
 
 Optional settings in the same file include:
 
@@ -128,7 +128,7 @@ journalctl -u cups
 
 ## Continuous builds
 
-`github-build-workflow.yml` is a GitHub Actions template for native and ARMv6 builds, processor compatibility checks, complete color-page comparison and downloadable binary packages. To enable it, copy it to `.github/workflows/build.yml` and commit that file using a GitHub connection with permission to update workflows. The template does not run automatically from its current location.
+The GitHub Actions workflow in `.github/workflows/build.yml` runs on pushes and pull requests. It checks native and ARMv6 builds, processor compatibility and a complete color page, then creates downloadable source-and-binary packages.
 
 To create the same source-and-binary archive locally from a committed checkout:
 

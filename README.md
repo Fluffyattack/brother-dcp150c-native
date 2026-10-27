@@ -2,7 +2,7 @@
 
 Native Linux printing and a local printer dashboard for the **Brother DCP-150C on Raspberry Pi**.
 
-**Preview software: tests on the physical printer are still pending.** The native converter has been compared with the original driver, including complete color pages. Its build information continues to report `production_ready: false` until hardware validation is complete. The dashboard can be installed independently.
+**Preview software: physical print validation is still pending.** The native converter has been compared with the original driver, including complete color pages. USB connection and basic printer status have been verified on a Pi Zero 2 W; no physical test page was sent. Build information continues to report `production_ready: false`. The dashboard can be installed independently.
 
 The software includes:
 
@@ -12,6 +12,8 @@ The software includes:
 - A configuration tool with readable options and installation/removal scripts that preserve existing printer settings.
 
 ## Get started on the Pi
+
+The [prebuilt Pi package](https://github.com/Fluffyattack/brother-dcp150c-native/releases/tag/v0.1.0-preview.1) includes static ARMv6 programs, their source code, required runtime data and installation scripts. Download and unpack it to use the programs already in `build/`; compilation is optional.
 
 Use Raspberry Pi OS with Python 3.10 or newer, systemd and CUPS 2.x:
 
@@ -65,7 +67,7 @@ See [installation, configuration and removal](packaging/README.md) for network s
 
 The dashboard reads connection information and printing activity from Linux and CUPS. Available CUPS ink markers may come from a previous driver reading.
 
-Optional model-specific USB polling is implemented but **disabled by default pending hardware testing**. It requires this project's shared USB backend and an idle printer. The DCP-150C reports cartridge levels in steps: **0, 10, 25, 40, 55, 70, 85 and 100 percent**. The dashboard labels these as reported level bands. A missing response remains unknown.
+Optional model-specific USB polling is implemented but **disabled by default**. The connected DCP-150C returned no cartridge counters during status-only USB queries, so this feature remains experimental. It requires this project's shared USB backend and an idle printer. When available, model-specific readings use the original monitor's level bands: **0, 10, 25, 40, 55, 70, 85 and 100 percent**. A missing response remains unknown.
 
 Dashboard settings are kept in `/etc/dcp150c-native/dashboard.env`. Installation preserves that file. Details are in the [status configuration instructions](packaging/README.md#dashboard-only).
 
@@ -80,7 +82,7 @@ make armv6
 
 This produces static binaries in `build/armv6/`, including support for the ARM1176 processor in the original Pi Zero. The build uses checksum-verified musl 1.2.6 sources and the ARMv6 startup/arithmetic runtime from Raspbian GCC 12. Build dependencies remain inside the ignored `build/` directory.
 
-The included [build workflow template](packaging/github-build-workflow.yml) executes these binaries with the ARM1176 CPU model and compares a complete color page with the host build. See [continuous builds](packaging/README.md#continuous-builds) to activate it. For installation on a Pi, select both matching tools with:
+The [automated build](.github/workflows/build.yml) executes these binaries with the ARM1176 CPU model and compares a complete color page with the host build. It also packages the programs with their source and runtime data. For installation on a Pi, select both matching tools with:
 
 ```sh
 sudo scripts/install.sh --filter build/armv6/bh7filter --allow-unverified-filter
