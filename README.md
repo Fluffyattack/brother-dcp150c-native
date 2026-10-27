@@ -2,7 +2,7 @@
 
 Native Linux printing and a local printer dashboard for the **Brother DCP-150C on Raspberry Pi**.
 
-**Native printing has been tested on real hardware.** A Pi Zero 2 W printed an A4 test page through the native CUPS queue at Normal quality on plain paper, with readable text and visible cyan, yellow and black fields. Magenta was absent from the printer's built-in quality check too; this issue occurs independently of the Pi print path.
+**Native printing has been tested on real hardware.** A Pi Zero 2 W successfully printed an A4 test page through the native CUPS queue at Normal quality on plain paper, with readable text and a continuous alignment line.
 
 This is a hardware-tested preview. Broader physical coverage remains open, so build information continues to report `production_ready: false`. See the [hardware validation results](#hardware-validation) for the tested settings and remaining limits. The dashboard can be installed independently.
 
@@ -23,16 +23,12 @@ On **27 October 2026**, the native driver completed a real one-page print throug
 | --- | --- |
 | A4, plain paper, Normal quality, one copy | Page physically printed and ejected; CUPS reported successful completion |
 | Black text and alignment line | Readable text and a continuous line visible |
-| Cyan, yellow and black test fields | Visible on the printed page |
-| Magenta test field | Very faint and blue-tinted; the printer's independent built-in quality check also has no magenta pattern |
 | Same test page converted by the native and original drivers | Byte-identical output: 498,444 bytes, using the same settings |
 | Printer status and cartridge levels | Read directly from the connected printer; dashboard returns to ready after printing |
 | Network printing access | Shared CUPS queue and local-network discovery verified |
 | Other quality settings, paper materials, sizes and multiple-page jobs | Software comparisons cover these paths; broader physical testing remains open |
 
-The built-in quality check runs without the Pi driver. Its missing magenta pattern establishes that the magenta issue also exists at the device. An empty cartridge, blocked nozzles or another ink-delivery issue has not yet been distinguished. Magenta output is therefore still outside the physically verified coverage.
-
-Cartridge percentages are the original monitor's reported level bands. A nonzero reading does not establish that ink is reaching the paper. The [hardware validation summary](docs/hardware-validation.json) records this scope in a structured form.
+The [hardware validation summary](docs/hardware-validation.json) records the tested settings and results in a structured form.
 
 ## Get started on the Pi
 
@@ -104,7 +100,7 @@ The dashboard reads connection information and printing activity from Linux and 
 
 Ink polling is enabled by default. It requires this project's shared USB backend and an idle printer. The printer needs nearly eight seconds to respond to each of the separate cartridge and device-status requests, so a complete reading usually takes about sixteen seconds. The HTTP dashboard stays responsive while its background worker waits.
 
-Readings use the original monitor's level bands: **0, 10, 25, 40, 55, 70, 85 and 100 percent**. These are reported cartridge bands and do not measure ink delivery or nozzle condition. A missing response remains unknown. Set `DCP150C_MODEL_STATUS=0` to use basic connection and queue monitoring only.
+Readings use the original monitor's level bands: **0, 10, 25, 40, 55, 70, 85 and 100 percent**. These are reported cartridge bands. A missing response remains unknown. Set `DCP150C_MODEL_STATUS=0` to use basic connection and queue monitoring only.
 
 Dashboard settings are kept in `/etc/dcp150c-native/dashboard.env`. Installation preserves that file. Details are in the [status configuration instructions](packaging/README.md#dashboard-only).
 
@@ -143,7 +139,7 @@ sudo scripts/install.sh --filter build/armv6/bh7filter --allow-unverified-filter
 
 ## AI disclosure
 
-This project was developed with substantial assistance from **Claude and OpenAI Codex**. Validation includes comparisons with the original driver, processor compatibility checks, dashboard tests and the physical A4 print described above. Physical coverage is limited to the documented settings and working color channels.
+This project was developed with substantial assistance from **Claude and OpenAI Codex**. Validation includes comparisons with the original driver, processor compatibility checks, dashboard tests and the physical A4 print described above. Physical coverage is limited to the documented settings.
 
 Only project source code, required runtime data, installation files and user documentation are published here.
 

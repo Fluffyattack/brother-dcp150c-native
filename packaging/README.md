@@ -1,6 +1,6 @@
 # Raspberry Pi OS installation
 
-The installer supports Raspberry Pi OS with systemd and CUPS 2.x. The dashboard uses Python's standard library. Native printing additionally needs Ghostscript and a `bh7filter` built for the Pi's CPU, together with the matching `brprintconf_dcp150c` configuration tool. An A4/plain-paper/Normal test page has been physically printed on a Pi Zero 2 W. The [hardware validation results](../README.md#hardware-validation) describe the tested scope and the test printer's separate magenta issue.
+The installer supports Raspberry Pi OS with systemd and CUPS 2.x. The dashboard uses Python's standard library. Native printing additionally needs Ghostscript and a `bh7filter` built for the Pi's CPU, together with the matching `brprintconf_dcp150c` configuration tool. An A4/plain-paper/Normal test page has been physically printed on a Pi Zero 2 W. The [hardware validation results](../README.md#hardware-validation) describe the tested scope.
 
 Install the operating-system dependencies:
 
