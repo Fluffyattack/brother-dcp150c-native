@@ -1,0 +1,33 @@
+# Local build products
+/build/
+*.o
+*.a
+*.so
+*.deb
+*.rpm
+*.tar.gz
+__pycache__/
+*.py[cod]
+.venv/
+
+# Private research and verification stay outside the public project
+/local/
+/private/
+/evidence/
+/ref/
+/test/
+/tests/
+*.prn
+*.ppm
+*.snapshot
+*.jsonl
+*.gpr
+*.rep/
+.env
+.env.*
+.claude/
+.codex/
+
+# Editor files
+*~
+.DS_Store
