@@ -1,0 +1,58 @@
+{
+  "model": "Brother DCP-150C",
+  "test_date": "2026-10-27",
+  "release_status": "Hardware-tested preview",
+  "production_ready": false,
+  "tested_host": {
+    "model": "Raspberry Pi Zero 2 W",
+    "processor_architecture": "32-bit ARMv7",
+    "printer_connection": "USB through the shared CUPS backend"
+  },
+  "physical_print": {
+    "paper_size": "A4",
+    "paper_material": "Plain paper",
+    "quality": "Normal",
+    "color_mode": "Color",
+    "document_format": "PostScript",
+    "pages": 1,
+    "copies": 1,
+    "input_resolution_dots_per_inch": 600,
+    "paper_output_confirmed": true,
+    "cups_completion": "Successful",
+    "black_text": "Readable",
+    "alignment_line": "Continuous line visible",
+    "cyan": "Visible",
+    "yellow": "Visible",
+    "black": "Visible",
+    "magenta": "Very faint, blue-tinted field; magenta output remains unverified",
+    "observation_source": "User photographs of the printed page"
+  },
+  "independent_device_quality_check": {
+    "runs_without_pi_driver": true,
+    "black_pattern": "Visible",
+    "yellow_pattern": "Visible",
+    "cyan_pattern": "Visible",
+    "magenta_pattern": "Absent",
+    "conclusion": "Missing magenta also occurs independently of the Pi print path.",
+    "unresolved_cause": "Empty cartridge, blocked nozzles or another ink-delivery issue have not been distinguished."
+  },
+  "test_document_software_comparison": {
+    "native_and_original_output_byte_identical": true,
+    "output_bytes": 498444,
+    "printer_settings_match_installed_configuration": true,
+    "scope": "Offline comparison of the native host converter and original converter for the printed document and settings."
+  },
+  "additional_verified_features": [
+    "Direct USB printer status and reported cartridge level bands",
+    "Return to ready status after the print job",
+    "Shared CUPS queue and local-network printer discovery",
+    "English and German dashboard on desktop and mobile browsers"
+  ],
+  "remaining_physical_coverage": [
+    "Magenta output with a working ink supply and nozzles",
+    "Quality settings other than Normal",
+    "Other paper sizes and materials",
+    "Multiple-page and repeated print jobs"
+  ],
+  "cartridge_reading_limit": "Reported percentage bands do not establish actual ink delivery or nozzle condition."
+}

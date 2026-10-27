@@ -23,7 +23,7 @@ usage() {
 Usage: sudo scripts/install.sh [options]
   --dashboard-only         Install status/dashboard without a native print queue
   --filter FILE            Native bh7filter; brprintconf_dcp150c must be beside it
-  --allow-unverified-filter Allow a functional preview build before hardware testing
+  --allow-unverified-filter Approve the exact executable of a functional preview build
   --queue NAME             CUPS queue name (default: DCP150C-Native)
   --device-uri URI         usb://Brother/DCP-150C?... from lpinfo -v
   --no-queue               Install CUPS files without configuring a queue
@@ -275,7 +275,7 @@ with tempfile.NamedTemporaryFile(mode='w', encoding='ascii', dir=approval_path.p
         os.fchown(output.fileno(), 0, 0)
 os.replace(output.name, approval_path)
 PY
-        printf 'Functional preview build selected explicitly. Printer hardware testing is still outstanding.\n'
+        printf 'Functional preview build selected explicitly. See README.md for tested hardware coverage.\n'
     else
         rm -f -- "$staging_root/etc/dcp150c-native/allow-unverified-filter"
     fi

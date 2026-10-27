@@ -31,7 +31,11 @@ Source revision: $revision
 Target: ARMv6 hard-float Linux, including the original Raspberry Pi Zero.
 The two programs in build/ are statically linked with musl and the GCC runtime.
 Source code, runtime printer data and license notices are included.
-Physical printer validation remains pending; see README.md before installing.
+Hardware-tested path: Pi Zero 2 W, USB, A4 plain paper, Normal quality, one page.
+Text, cyan, yellow and black were visible on the printed page.
+Magenta was also missing from the printer's independent built-in quality check.
+Other physical print settings and magenta output remain unverified.
+This is a preview build; see README.md and docs/hardware-validation.json for scope.
 INFORMATION
 
 source_date=$(git show -s --format=%ct HEAD)

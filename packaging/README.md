@@ -1,6 +1,6 @@
 # Raspberry Pi OS installation
 
-The installer supports Raspberry Pi OS with systemd and CUPS 2.x. The dashboard uses Python's standard library. Native printing additionally needs Ghostscript and a verified `bh7filter` built for the Pi's CPU, together with the matching `brprintconf_dcp150c` configuration tool. Printer hardware testing remains outstanding.
+The installer supports Raspberry Pi OS with systemd and CUPS 2.x. The dashboard uses Python's standard library. Native printing additionally needs Ghostscript and a `bh7filter` built for the Pi's CPU, together with the matching `brprintconf_dcp150c` configuration tool. An A4/plain-paper/Normal test page has been physically printed on a Pi Zero 2 W. The [hardware validation results](../README.md#hardware-validation) describe the tested scope and the test printer's separate magenta issue.
 
 Install the operating-system dependencies:
 
@@ -45,9 +45,9 @@ systemctl status dcp150c-dashboard
 
 ## Native printing
 
-The installer checks `bh7filter --capabilities` before changing the system. It normally requires `production_ready: true`. It also checks that the matching configuration tool can run. Development builds can use the dashboard-only installation.
+The installer checks `bh7filter --capabilities` before changing the system. It normally requires `production_ready: true`. The hardware-tested preview keeps this value false until broader physical coverage is established, so use the explicit preview option below. The installer also checks that the matching configuration tool can run.
 
-To install a functional preview before hardware testing, use the explicit option below. This installs the print components without creating a queue:
+To install the print components without creating a queue:
 
 ```sh
 sudo scripts/install.sh --allow-unverified-filter --no-queue
@@ -55,10 +55,10 @@ sudo scripts/install.sh --allow-unverified-filter --no-queue
 
 The preview must identify the DCP-150C, report `native_raster: true` and support all six qualities. Placeholder builds are refused. The installer records approval for the exact executable in the root-owned `/etc/dcp150c-native/allow-unverified-filter` file. The CUPS filter checks that approval and the executable's checksum before accepting a preview build. A changed build needs explicit approval again; repeat the option when reinstalling a preview. Installing a verified build removes the preview approval. The executable continues to report its actual verification state.
 
-Build both native executables using the project build instructions, keeping them in the same directory. Then connect and switch on the printer:
+Build both native executables using the project build instructions, keeping them in the same directory. Prebuilt release packages already contain both tools in `build/`. Then connect and switch on the printer. To install the preview, create its queue and share it on the local network:
 
 ```sh
-sudo scripts/install.sh --share-lan
+sudo scripts/install.sh --allow-unverified-filter --share-lan
 ```
 
 The default new queue is `DCP150C-Native`. Existing queues are preserved. Repeating the installation reuses a queue with a matching installation record and exact device URI, preserving its saved print options. Choose another name if a queue with the requested name belongs to a different setup. If an enabled legacy queue addresses the same USB printer, disable that queue before configuring the native one so every print job uses the shared device lock:
@@ -66,14 +66,14 @@ The default new queue is `DCP150C-Native`. Existing queues are preserved. Repeat
 ```sh
 lpstat -p -v
 sudo cupsdisable <old-queue-name>
-sudo scripts/install.sh --share-lan
+sudo scripts/install.sh --allow-unverified-filter --share-lan
 ```
 
 For an explicit USB URI or a different queue name:
 
 ```sh
 lpinfo -v
-sudo scripts/install.sh --queue DCP150C-Native --device-uri 'usb://Brother/DCP-150C?serial=YOUR_DEVICE_SERIAL'
+sudo scripts/install.sh --allow-unverified-filter --queue DCP150C-Native --device-uri 'usb://Brother/DCP-150C?serial=YOUR_DEVICE_SERIAL'
 ```
 
 `--share-lan` enables CUPS printer sharing and shares this queue. It does not enable unrestricted remote administration. A new queue starts unshared when this option is omitted; an existing owned queue keeps its sharing preference. The installer does not select a system-wide default printer or send a physical test page.
@@ -81,7 +81,7 @@ sudo scripts/install.sh --queue DCP150C-Native --device-uri 'usb://Brother/DCP-1
 Other options:
 
 - `--filter FILE`: use a different native executable, with `brprintconf_dcp150c` beside it.
-- `--allow-unverified-filter`: explicitly approve a functional preview build before hardware testing.
+- `--allow-unverified-filter`: explicitly approve the exact functional preview executable while broader hardware validation continues.
 - `--no-queue`: install print components without registering a queue.
 - `--no-start`: install without enabling or starting the dashboard.
 - `--staging-root /absolute/path`: copy installation files into a packaging tree without changing users, services, or CUPS queues.

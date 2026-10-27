@@ -2,7 +2,9 @@
 
 Native Linux printing and a local printer dashboard for the **Brother DCP-150C on Raspberry Pi**.
 
-**Preview software: physical print validation is still pending.** The native converter has been compared with the original driver, including complete color pages. USB connection, cartridge levels and printer status have been verified on a Pi Zero 2 W; no physical test page was sent. Build information continues to report `production_ready: false`. The dashboard can be installed independently.
+**Native printing has been tested on real hardware.** A Pi Zero 2 W printed an A4 test page through the native CUPS queue at Normal quality on plain paper, with readable text and visible cyan, yellow and black fields. Magenta was absent from the printer's built-in quality check too; this issue occurs independently of the Pi print path.
+
+This is a hardware-tested preview. Broader physical coverage remains open, so build information continues to report `production_ready: false`. See the [hardware validation results](#hardware-validation) for the tested settings and remaining limits. The dashboard can be installed independently.
 
 The software includes:
 
@@ -10,6 +12,27 @@ The software includes:
 - Integration with the Common UNIX Printing System (CUPS), including PDF/PostScript rendering, six quality settings and a separate printer queue.
 - A small dashboard in German and English with printing activity, connection status and available ink information. It runs without Python package dependencies.
 - A configuration tool with readable options and installation/removal scripts that preserve existing printer settings.
+
+![English dashboard showing the real printer status and reported cartridge levels](docs/images/dashboard-english.png)
+
+## Hardware validation
+
+On **27 October 2026**, the native driver completed a real one-page print through CUPS on a **Raspberry Pi Zero 2 W**, connected to the DCP-150C over USB. The printed page was inspected in user-supplied photographs.
+
+| Check | Observed result |
+| --- | --- |
+| A4, plain paper, Normal quality, one copy | Page physically printed and ejected; CUPS reported successful completion |
+| Black text and alignment line | Readable text and a continuous line visible |
+| Cyan, yellow and black test fields | Visible on the printed page |
+| Magenta test field | Very faint and blue-tinted; the printer's independent built-in quality check also has no magenta pattern |
+| Same test page converted by the native and original drivers | Byte-identical output: 498,444 bytes, using the same settings |
+| Printer status and cartridge levels | Read directly from the connected printer; dashboard returns to ready after printing |
+| Network printing access | Shared CUPS queue and local-network discovery verified |
+| Other quality settings, paper materials, sizes and multiple-page jobs | Software comparisons cover these paths; broader physical testing remains open |
+
+The built-in quality check runs without the Pi driver. Its missing magenta pattern establishes that the magenta issue also exists at the device. An empty cartridge, blocked nozzles or another ink-delivery issue has not yet been distinguished. Magenta output is therefore still outside the physically verified coverage.
+
+Cartridge percentages are the original monitor's reported level bands. A nonzero reading does not establish that ink is reaching the paper. The [hardware validation summary](docs/hardware-validation.json) records this scope in a structured form.
 
 ## Get started on the Pi
 
@@ -50,13 +73,13 @@ Use the language selector at the top of the page to choose a language. The brows
 
 Translations cover status and error messages, cartridge states, print-job counts, screen-reader labels and the page title. Times and percentages follow the selected language's formatting. Printer display text, queue names and job identifiers retain their original content.
 
-To add another language, copy an entry in [`dcp150c/static/translations.js`](dcp150c/static/translations.js), use its standard language tag as the key and translate the messages. Keep identifiers and `{parameter}` names unchanged. Set `direction` to `rtl` for a language written from right to left and add any needed plural categories such as `activity.active_jobs.few`; counts use the browser's language-specific plural rules. Missing messages fall back to English. No server dependency or build step is required.
+To add another language, copy an entry in [`dcp150c/static/translations.js`](dcp150c/static/translations.js), use its standard language tag as the key and translate the messages. Keep identifiers and `{parameter}` names unchanged. Set `direction` to `rtl` for a language written from right to left and add any needed plural categories such as `activity.active_jobs.few`; counts use the browser's language-specific plural rules. Missing messages fall back to English. No server dependency or build step is required. Reinstall the dashboard and restart its service to serve an updated catalogue.
 
 The status API keeps its existing English `message` and `warnings` fields for compatibility. `message_code`, `message_parameters` and `warning_details` provide stable identifiers and parameters for translated clients.
 
-## Try native printing
+## Install native printing
 
-The default installer requires a hardware-validated filter. This preview provides an explicit option for testing the native implementation:
+The A4/plain-paper/Normal path has passed its first physical test. The current release remains a preview while broader hardware coverage is collected. Approve the exact preview executable with:
 
 ```sh
 sudo scripts/install.sh --allow-unverified-filter
@@ -81,7 +104,7 @@ The dashboard reads connection information and printing activity from Linux and 
 
 Ink polling is enabled by default. It requires this project's shared USB backend and an idle printer. The printer needs nearly eight seconds to respond to each of the separate cartridge and device-status requests, so a complete reading usually takes about sixteen seconds. The HTTP dashboard stays responsive while its background worker waits.
 
-Readings use the original monitor's level bands: **0, 10, 25, 40, 55, 70, 85 and 100 percent**. These are reported cartridge bands. A missing response remains unknown. Set `DCP150C_MODEL_STATUS=0` to use basic connection and queue monitoring only.
+Readings use the original monitor's level bands: **0, 10, 25, 40, 55, 70, 85 and 100 percent**. These are reported cartridge bands and do not measure ink delivery or nozzle condition. A missing response remains unknown. Set `DCP150C_MODEL_STATUS=0` to use basic connection and queue monitoring only.
 
 Dashboard settings are kept in `/etc/dcp150c-native/dashboard.env`. Installation preserves that file. Details are in the [status configuration instructions](packaging/README.md#dashboard-only).
 
@@ -120,7 +143,7 @@ sudo scripts/install.sh --filter build/armv6/bh7filter --allow-unverified-filter
 
 ## AI disclosure
 
-This project was developed with substantial assistance from **Claude and OpenAI Codex**. Validation includes comparisons with the original driver, processor compatibility checks and dashboard tests. These software checks do not replace testing the physical printer.
+This project was developed with substantial assistance from **Claude and OpenAI Codex**. Validation includes comparisons with the original driver, processor compatibility checks, dashboard tests and the physical A4 print described above. Physical coverage is limited to the documented settings and working color channels.
 
 Only project source code, required runtime data, installation files and user documentation are published here.
 
