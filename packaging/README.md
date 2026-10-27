@@ -19,13 +19,15 @@ Open `http://<pi-address>:8080/`. Existing CUPS queues are preserved. The servic
 
 To monitor an existing queue, add `--queue <existing-queue-name>` to the dashboard-only command. This selects that queue in the dashboard without changing the queue itself.
 
-Dashboard settings go in `/etc/dcp150c-native/dashboard.env`. The installer preserves this file when it already exists. Its initial settings leave model-specific USB status disabled:
+Dashboard settings go in `/etc/dcp150c-native/dashboard.env`. The installer preserves this file when it already exists. A fresh installation enables the verified cartridge queries:
 
 ```ini
-DCP150C_MODEL_STATUS=0
+DCP150C_MODEL_STATUS=1
 ```
 
-The connected test printer did not return ink counters, so model-specific polling remains experimental and stays off by default. Enabling it requires this project's CUPS backend, no queued print jobs, an identified DCP-150C and exclusive access to the shared device lock. Queue information and any available CUPS ink markers remain accessible with the setting off.
+Ink polling requires this project's CUPS backend, no queued print jobs, an identified DCP-150C and exclusive access to the shared device lock. Each of the two response phases allows ten seconds because the printer responds after nearly eight seconds. A full reading usually takes about sixteen seconds; browsers continue to receive cached snapshots during that time.
+
+When upgrading from an earlier preview, change an existing `DCP150C_MODEL_STATUS=0` to `1` to enable ink readings. Set it to `0` for basic queue and connection monitoring. The command-line equivalents are `--enable-model-status` and `--disable-model-status`. `--timeout` sets the limit for each response phase; the default is ten seconds.
 
 Optional settings in the same file include:
 

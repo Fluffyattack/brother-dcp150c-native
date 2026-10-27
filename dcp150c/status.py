@@ -330,14 +330,14 @@ def _port_status(device: Path) -> int:
 class StatusMonitor:
     """Cache JSON-safe snapshots. Run forced polls outside HTTP request threads.
 
-    ``timeout`` bounds each local IPP request. A USB class-status ioctl has the
-    Linux usblp driver's own five-second timeout. Polling is serialized and
-    never waits for the shared printer lock.
+    ``timeout`` bounds each of the two model response phases. Local print-service
+    requests use at most two seconds. A USB class-status ioctl has the Linux
+    driver's own five-second timeout. Polling never waits for the printer lock.
     """
 
     def __init__(self, queue: str | None = None, device: str = "/dev/usb/lp0",
                  lock_path: str = DEFAULT_LOCK, poll_interval: float = 5.0,
-                 sysfs_root: str = "/sys", timeout: float = 2.0,
+                 sysfs_root: str = "/sys", timeout: float = 10.0,
                  enable_model_status: bool = False):
         if not 0.1 <= float(timeout) <= 30:
             raise ValueError("timeout must be between 0.1 and 30 seconds")
@@ -350,7 +350,7 @@ class StatusMonitor:
         self.poll_interval = float(poll_interval)
         self.timeout = float(timeout)
         self.enable_model_status = bool(enable_model_status)
-        self.cups = CupsClient(float(timeout))
+        self.cups = CupsClient(min(float(timeout), 2.0))
         self._stop_requested = threading.Event()
         self._mutex = threading.Lock()
         self._last_monotonic = float("-inf")
@@ -415,7 +415,8 @@ class StatusMonitor:
             # An unfamiliar model status must not be hidden by a generic ready bit.
             result.update(state="unknown", message=model_status["message"])
         result["warnings"].extend(model_status["warnings"])
-        result["warnings"].append("Model-specific ink polling is experimental and still needs a test on the printer.")
+        if not model_status.get("hardware_verified"):
+            result["warnings"].append("This model response has not been verified through the printer connection.")
 
     def cancel_pending_poll(self) -> None:
         """Finish an in-flight exchange, but do not start another USB operation."""
@@ -426,6 +427,7 @@ class StatusMonitor:
             if not self._stop_requested.is_set() and (
                     force or time.monotonic() - self._last_monotonic >= self.poll_interval):
                 self._cached = self._poll()
+                self._cached["last_poll"] = _utc_now()
                 self._last_monotonic = time.monotonic()
             return copy.deepcopy(self._cached)
 

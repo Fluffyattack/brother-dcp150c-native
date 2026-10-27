@@ -247,10 +247,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--lock-path", default=os.environ.get("DCP150C_LOCK_PATH", "/run/lock/dcp150c-device.lock"),
                         help="lock shared with the CUPS wrapper")
     parser.add_argument("--poll-interval", type=float, default=5.0, help="seconds between polls (1–3600)")
-    parser.add_argument("--timeout", type=float, default=2.0, help="USB status timeout in seconds")
-    parser.add_argument("--enable-model-status", action="store_true",
-                        default=os.environ.get("DCP150C_MODEL_STATUS", "0") == "1",
-                        help="enable experimental stepped ink readings through the managed USB backend")
+    parser.add_argument("--timeout", type=float, default=10.0,
+                        help="seconds allowed for each printer response (default: 10)")
+    model_status_options = parser.add_mutually_exclusive_group()
+    model_status_options.add_argument("--enable-model-status", dest="enable_model_status", action="store_true",
+                                      help="read cartridge levels through the managed USB backend")
+    model_status_options.add_argument("--disable-model-status", dest="enable_model_status", action="store_false",
+                                      help="read basic connection and queue status without cartridge queries")
+    parser.set_defaults(enable_model_status=os.environ.get("DCP150C_MODEL_STATUS", "1") == "1")
     parser.add_argument("--verbose", action="store_true", help="log HTTP requests and diagnostics")
     parser.add_argument("--version", action="version", version=__version__)
     args = parser.parse_args(argv)

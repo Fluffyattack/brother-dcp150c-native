@@ -2,7 +2,7 @@
 
 Native Linux printing and a local printer dashboard for the **Brother DCP-150C on Raspberry Pi**.
 
-**Preview software: physical print validation is still pending.** The native converter has been compared with the original driver, including complete color pages. USB connection and basic printer status have been verified on a Pi Zero 2 W; no physical test page was sent. Build information continues to report `production_ready: false`. The dashboard can be installed independently.
+**Preview software: physical print validation is still pending.** The native converter has been compared with the original driver, including complete color pages. USB connection, cartridge levels and printer status have been verified on a Pi Zero 2 W; no physical test page was sent. Build information continues to report `production_ready: false`. The dashboard can be installed independently.
 
 The software includes:
 
@@ -13,7 +13,7 @@ The software includes:
 
 ## Get started on the Pi
 
-The [prebuilt Pi package](https://github.com/Fluffyattack/brother-dcp150c-native/releases/tag/v0.1.0-preview.1) includes static ARMv6 programs, their source code, required runtime data and installation scripts. Download and unpack it to use the programs already in `build/`; compilation is optional.
+The [prebuilt Pi packages](https://github.com/Fluffyattack/brother-dcp150c-native/releases) include static ARMv6 programs, their source code, required runtime data and installation scripts. Download and unpack a release to use the programs already in `build/`; compilation is optional.
 
 Use Raspberry Pi OS with Python 3.10 or newer, systemd and CUPS 2.x:
 
@@ -65,9 +65,11 @@ See [installation, configuration and removal](packaging/README.md) for network s
 
 ## Ink and printer status
 
-The dashboard reads connection information and printing activity from Linux and CUPS. Available CUPS ink markers may come from a previous driver reading.
+The dashboard reads connection information and printing activity from Linux and CUPS. With the managed USB backend it also reads cartridge counters directly from the DCP-150C. This exchange has been verified on the connected printer without sending a print page.
 
-Optional model-specific USB polling is implemented but **disabled by default**. The connected DCP-150C returned no cartridge counters during status-only USB queries, so this feature remains experimental. It requires this project's shared USB backend and an idle printer. When available, model-specific readings use the original monitor's level bands: **0, 10, 25, 40, 55, 70, 85 and 100 percent**. A missing response remains unknown.
+Ink polling is enabled by default. It requires this project's shared USB backend and an idle printer. The printer needs nearly eight seconds to respond to each of the separate cartridge and device-status requests, so a complete reading usually takes about sixteen seconds. The HTTP dashboard stays responsive while its background worker waits.
+
+Readings use the original monitor's level bands: **0, 10, 25, 40, 55, 70, 85 and 100 percent**. These are reported cartridge bands. A missing response remains unknown. Set `DCP150C_MODEL_STATUS=0` to use basic connection and queue monitoring only.
 
 Dashboard settings are kept in `/etc/dcp150c-native/dashboard.env`. Installation preserves that file. Details are in the [status configuration instructions](packaging/README.md#dashboard-only).
 
