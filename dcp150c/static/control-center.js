@@ -241,6 +241,7 @@ function clearPrivateViews() {
   if (typeof clearBackupViews === "function") clearBackupViews();
   if (typeof clearMediaReaderViews === "function") clearMediaReaderViews();
   if (typeof clearScanButtonViews === "function") clearScanButtonViews();
+  if (typeof clearNetworkScannerViews === "function") clearNetworkScannerViews();
   showControlView("overview");
 }
 
@@ -707,6 +708,7 @@ function renderControlCenter() {
   if (typeof renderBackups === "function" && changed("backups", controlState.backups)) renderBackups();
   if (typeof renderMediaReader === "function") renderMediaReader();
   if (typeof renderScanButtonSettings === "function") renderScanButtonSettings();
+  if (typeof renderNetworkScannerSettings === "function") renderNetworkScannerSettings();
   const latestScanJob = controlState.jobs.find((job) => ["scan", "copy", "scan_page", "scan_preview", "scan_button"].includes(job.kind) && job.result_document_id);
   const latestScan = latestScanJob ? controlState.documents.find((record) => record.id === latestScanJob.result_document_id) : null;
   const latestContainer = findElementById("scan-latest");

@@ -1,0 +1,989 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -76,6 +76,7 @@
+     server/scanjob.cpp
+     server/scannerpage.cpp
+     sanecpp/sanecpp.cpp
++    network_scanner/device_access.cpp
+     basic/url.cpp
+     basic/uuid.cpp
+     basic/dictionary.cpp
+diff --git a/sanecpp/sanecpp.h b/sanecpp/sanecpp.h
+--- a/sanecpp/sanecpp.h
++++ b/sanecpp/sanecpp.h
+@@ -28,6 +28,7 @@
+ #include <mutex>
+ #include <condition_variable>
+ #include <atomic>
++#include "network_scanner/device_access.h"
+
+ namespace sanecpp {
+
+@@ -45,6 +46,9 @@
+ {
+     init();
+     ~init();
++    SANE_Status status() const { return m_status; }
++private:
++    SANE_Status m_status;
+ };
+
+ struct device_info
+@@ -52,12 +56,13 @@
+   std::string name, vendor, model, type;
+ };
+ std::vector<device_info>
+-enumerate_devices(bool localonly = true);
++enumerate_devices(bool localonly = true, SANE_Status* status = nullptr);
+
+ typedef std::shared_ptr<void> device_handle;
+
+ device_handle
+-open(const std::string&, SANE_Status* = nullptr);
++open(const std::string&, SANE_Status* = nullptr,
++     network_scanner::AccessKind = network_scanner::AccessKind::metadata);
+ device_handle
+ open(const device_info&, SANE_Status* = nullptr);
+
+@@ -186,6 +191,7 @@
+   std::condition_variable m_session_state_changed;
+   enum { pristine, initialized, reading };
+   std::atomic<int> m_session_state {pristine};
++  bool m_end_of_frame = false;
+ };
+
+ } // namespace sanecpp
+diff --git a/sanecpp/sanecpp.cpp b/sanecpp/sanecpp.cpp
+--- a/sanecpp/sanecpp.cpp
++++ b/sanecpp/sanecpp.cpp
+@@ -89,36 +89,75 @@
+
+ static int sane_init_refcount = 0;
+ static std::mutex sane_init_mutex;
+-
+-void
+-sane_init_addref()
++static bool sane_initialized = false;
++static bool sane_cleanup_pending = false;
++
++SANE_Status
++access_status(network_scanner::AccessFailure failure)
++{
++  return failure == network_scanner::AccessFailure::busy
++    ? SANE_STATUS_DEVICE_BUSY : SANE_STATUS_ACCESS_DENIED;
++}
++
++SANE_Status
++sane_init_addref(const std::shared_ptr<network_scanner::DeviceAccessLease>& existing = {})
+ {
+   std::lock_guard<std::mutex> lock(sane_init_mutex);
+-  if (++sane_init_refcount == 1) {
++  if (!sane_initialized || sane_cleanup_pending) {
++    auto access = existing ? network_scanner::AccessResult{existing, network_scanner::AccessFailure::none}
++      : network_scanner::acquireDeviceAccess(network_scanner::AccessKind::metadata);
++    if (!access) {
++      network_scanner::reportDeviceAccessFailure("initialization", access.failure);
++      return access_status(access.failure);
++    }
++    if (sane_cleanup_pending) {
++      assert(sane_init_refcount == 0);
++      ::sane_exit();
++      sane_initialized = false;
++      sane_cleanup_pending = false;
++    }
+     log << "sane_init(nullptr, nullptr)" << std::endl;
+-    ::sane_init(nullptr, nullptr);
+-  }
+-}
+-
+-void
+-sane_init_release()
++    SANE_Status status = ::sane_init(nullptr, nullptr);
++    if (status != SANE_STATUS_GOOD)
++      return status;
++    sane_initialized = true;
++  }
++  ++sane_init_refcount;
++  return SANE_STATUS_GOOD;
++}
++
++bool
++sane_init_release(const std::shared_ptr<network_scanner::DeviceAccessLease>& existing = {})
+ {
+   std::lock_guard<std::mutex> lock(sane_init_mutex);
+   assert(sane_init_refcount > 0);
+   if (--sane_init_refcount == 0) {
++    auto access = existing ? network_scanner::AccessResult{existing, network_scanner::AccessFailure::none}
++      : network_scanner::acquireDeviceAccess(network_scanner::AccessKind::metadata);
++    if (!access) {
++      // Keep initialized state explicit. A later successful initialization may
++      // finish this cleanup under its lease; never call sane_exit unlocked.
++      sane_cleanup_pending = true;
++      network_scanner::reportDeviceAccessFailure("cleanup_deferred", access.failure);
++      return false;
++    }
+     log << "sane_exit()" << std::endl;
+     ::sane_exit();
+-  }
++    sane_initialized = false;
++    sane_cleanup_pending = false;
++  }
++  return true;
+ }
+
+ init::init()
+-{
+-  sane_init_addref();
++  : m_status(sane_init_addref())
++{
+ }
+
+ init::~init()
+ {
+-  sane_init_release();
++  if (m_status == SANE_STATUS_GOOD)
++    sane_init_release();
+ }
+
+ option_set::option_set() {}
+@@ -506,38 +545,86 @@
+ }
+
+ device_handle
+-open(const std::string& name, SANE_Status* pStatus)
+-{
++open(const std::string& name, SANE_Status* pStatus, network_scanner::AccessKind kind)
++{
++  if (pStatus)
++    *pStatus = SANE_STATUS_ACCESS_DENIED;
++  if (!network_scanner::scannerNameMatchesPolicy(name))
++    return {};
++  auto access = network_scanner::acquireDeviceAccess(kind);
++  if (!access) {
++    if (pStatus)
++      *pStatus = access_status(access.failure);
++    return {};
++  }
++  struct DeviceHandleOwner {
++    std::shared_ptr<network_scanner::DeviceAccessLease> lease;
++    SANE_Handle handle = nullptr;
++    bool runtime_reference = false;
++    ~DeviceHandleOwner() {
++      std::unique_lock<std::mutex> lock(s_busy_devices_mutex);
++      if (handle) {
++        ::sane_close(handle);
++        clear_busy_device(handle);
++      }
++      if (runtime_reference)
++        sane_init_release(lease);
++    }
++  };
++  std::shared_ptr<DeviceHandleOwner> owner;
++  try {
++    owner = std::make_shared<DeviceHandleOwner>();
++    owner->lease = access.lease;
++  } catch (const std::bad_alloc&) {
++    if (pStatus)
++      *pStatus = SANE_STATUS_NO_MEM;
++    return {};
++  }
+   std::unique_lock<std::mutex> lock(s_busy_devices_mutex);
+   if (is_busy_device(name)) {
+-    *pStatus = SANE_STATUS_DEVICE_BUSY;
+-    return std::shared_ptr<void>();
+-  }
+-  sane_init_addref();
++    if (pStatus)
++      *pStatus = SANE_STATUS_DEVICE_BUSY;
++    return {};
++  }
++  SANE_Status status = sane_init_addref(access.lease);
++  owner->runtime_reference = status == SANE_STATUS_GOOD;
++  // Enforce the exact backend/vendor/model again at open time; a cached name
++  // alone does not authorize a different device after reconnection.
++  const SANE_Device** devices = nullptr;
++  if (status == SANE_STATUS_GOOD)
++    status = ::sane_get_devices(&devices, SANE_TRUE);
++  bool matching_device = false;
++  if (status == SANE_STATUS_GOOD && devices) {
++    for (const SANE_Device** device = devices; *device; ++device) {
++      if ((*device)->name && (*device)->vendor && (*device)->model
++          && name == (*device)->name
++          && network_scanner::scannerMatchesPolicy((*device)->name, (*device)->vendor, (*device)->model))
++        matching_device = true;
++    }
++  }
++  if (status == SANE_STATUS_GOOD && !matching_device)
++    status = SANE_STATUS_ACCESS_DENIED;
+   log << "sane_open(" << name << ") -> ";
+-  SANE_Handle h;
+-  SANE_Status status = ::sane_open(name.c_str(), &h);
++  if (status == SANE_STATUS_GOOD)
++    status = ::sane_open(name.c_str(), &owner->handle);
+   if (pStatus)
+     *pStatus = status;
+   if (SANE_STATUS_GOOD == status) {
+-    log << h << std::endl;
+-    struct handle_deleter
+-    {
+-      void operator()(SANE_Handle h) const
+-      {
+-        std::unique_lock<std::mutex> lock(s_busy_devices_mutex);
+-        log << "sane_close(" << h << ")" << std::endl;
+-        clear_busy_device(h);
+-        ::sane_close(h);
+-        sane_init_release();
+-      }
+-    };
+-    return std::shared_ptr<void>(h, handle_deleter());
++    log << owner->handle << std::endl;
++    try {
++      s_busy_devices.emplace_back(name, owner->handle);
++    } catch (const std::bad_alloc&) {
++      if (pStatus)
++        *pStatus = SANE_STATUS_NO_MEM;
++      return {};
++    }
++    // The aliasing constructor cannot allocate. Its owner keeps the lease
++    // through every option_set copy and the final sane_close/sane_exit.
++    return device_handle(owner, owner->handle);
+   } else {
+     log << "SANE_Status " << status << std::endl;
+   }
+-  sane_init_release();
+-  return std::shared_ptr<void>();
++  return {};
+ }
+
+ device_handle
+@@ -547,16 +634,30 @@
+ }
+
+ std::vector<device_info>
+-enumerate_devices(bool localonly)
++enumerate_devices(bool localonly, SANE_Status* result_status)
+ {
+   std::vector<device_info> devices;
+-  const SANE_Device** p;
+-  sane_init_addref();
++  auto access = network_scanner::acquireDeviceAccess(network_scanner::AccessKind::metadata);
++  SANE_Status status = access ? sane_init_addref(access.lease) : access_status(access.failure);
++  if (result_status)
++    *result_status = status;
++  if (status != SANE_STATUS_GOOD)
++    return devices;
++  struct RuntimeReference {
++    std::shared_ptr<network_scanner::DeviceAccessLease> lease;
++    ~RuntimeReference() { sane_init_release(lease); }
++  } runtime_reference{access.lease};
++  const SANE_Device** p = nullptr;
+   log << "sane_get_devices() ..." << std::endl;
+-  SANE_Status status = ::sane_get_devices(&p, localonly);
++  status = ::sane_get_devices(&p, localonly);
+   log << "... sane_get_devices() -> SANE_Status " << status << std::endl;
+-  if (status == SANE_STATUS_GOOD)
++  if (status == SANE_STATUS_GOOD && p)
+     while (*p) {
++      if (!(*p)->name || !(*p)->vendor || !(*p)->model
++          || !network_scanner::scannerMatchesPolicy((*p)->name, (*p)->vendor, (*p)->model)) {
++        ++p;
++        continue;
++      }
+       device_info info;
+       info.name = (*p)->name;
+       info.vendor = (*p)->vendor;
+@@ -565,14 +666,19 @@
+       devices.push_back(info);
+       ++p;
+     }
+-  sane_init_release();
++  if (devices.size() > 1) {
++    devices.clear();
++    status = SANE_STATUS_INVAL;
++  }
++  if (result_status)
++    *result_status = status;
+   return devices;
+ }
+
+ session::session(const std::string& devicename)
+   : m_sane_status(SANE_STATUS_GOOD)
+ {
+-  m_device = sanecpp::open(devicename, &m_sane_status);
++  m_device = sanecpp::open(devicename, &m_sane_status, network_scanner::AccessKind::session);
+   init();
+ }
+
+@@ -606,8 +712,22 @@
+   }
+   if (m_sane_status == SANE_STATUS_GOOD)
+     m_sane_status = ::sane_get_parameters(m_device.get(), &m_parameters);
+-
+   if (m_sane_status == SANE_STATUS_GOOD) {
++    const auto& parameters = m_parameters;
++    const int channels = parameters.format == SANE_FRAME_RGB ? 3 : 1;
++    const long long expected_line_bytes = static_cast<long long>(parameters.pixels_per_line)
++      * channels * (parameters.depth / 8);
++    if ((parameters.format != SANE_FRAME_RGB && parameters.format != SANE_FRAME_GRAY)
++        || !parameters.last_frame || (parameters.depth != 8 && parameters.depth != 16)
++        || parameters.pixels_per_line <= 0 || parameters.lines <= 0
++        || static_cast<unsigned long long>(parameters.pixels_per_line) * parameters.lines
++             > network_scanner::maximum_scan_pixels
++        || expected_line_bytes != parameters.bytes_per_line)
++      m_sane_status = SANE_STATUS_INVAL;
++  }
++
++  if (m_sane_status == SANE_STATUS_GOOD) {
++    m_end_of_frame = false;
+     m_session_state = initialized;
+     m_session_state_changed.notify_all();
+   }
+@@ -635,6 +755,10 @@
+     log << "session::read(): trying to read from uninitialized session";
+     return *this;
+   }
++  if (m_end_of_frame) {
++    m_sane_status = SANE_STATUS_EOF;
++    return *this;
++  }
+   m_session_state = reading;
+   m_session_state_changed.notify_all();
+
+@@ -642,10 +766,19 @@
+   size_t total = 0;
+   SANE_Byte* p = reinterpret_cast<SANE_Byte*>(buffer.data());
+   while (status == SANE_STATUS_GOOD && total < buffer.size()) {
+-    SANE_Int read;
++    SANE_Int read = 0;
+     status =
+       ::sane_read(m_device.get(), p + total, buffer.size() - total, &read);
+-    total += read;
++    if (read < 0 || static_cast<size_t>(read) > buffer.size() - total
++        || (status == SANE_STATUS_GOOD && read == 0)) {
++      status = SANE_STATUS_IO_ERROR;
++      break;
++    }
++    total += static_cast<size_t>(read);
++  }
++  if (status == SANE_STATUS_EOF && total == buffer.size()) {
++    m_end_of_frame = true;
++    status = SANE_STATUS_GOOD;
+   }
+   switch (status) {
+     case SANE_STATUS_GOOD:
+diff --git a/server/server.cpp b/server/server.cpp
+--- a/server/server.cpp
++++ b/server/server.cpp
+@@ -342,8 +342,17 @@
+       pathPrefix += Uuid::Random().toString() + "/";
+
+     sanecpp::init saneinit; // init/deinit after every iteration of the do/while loop
+-
+-    auto scanners = sanecpp::enumerate_devices(mLocalonly);
++    if (saneinit.status() != SANE_STATUS_GOOD) {
++      std::clog << "SANE initialization deferred or failed: " << saneinit.status() << std::endl;
++      return false;
++    }
++
++    SANE_Status enumeration_status = SANE_STATUS_GOOD;
++    auto scanners = sanecpp::enumerate_devices(mLocalonly, &enumeration_status);
++    if (enumeration_status != SANE_STATUS_GOOD) {
++      std::clog << "SANE enumeration deferred or failed: " << enumeration_status << std::endl;
++      return false;
++    }
+     int scannerCount = 0;
+     for (const auto& s : scanners) {
+       std::clog << "found: " << s.name << " (" << s.vendor << " " << s.model
+@@ -390,9 +399,10 @@
+             pScanner->setPublishedName(pService->name());
+           } else
+             pService.reset();
+-          }
+-          if (pService && !pScanner->error())
+-            mScanners.push_back(ScannerEntry({ pScanner, pService }));
++        }
++        // HTTP access remains available when discovery is disabled or fails.
++        if (!pScanner->error())
++          mScanners.push_back(ScannerEntry({ pScanner, pService }));
+       }
+     }
+
+@@ -607,6 +617,9 @@
+       response.send();
+       return;
+     }
++    response.setStatus(HttpServer::HTTP_SERVICE_UNAVAILABLE);
++    response.send();
++    return;
+   }
+   if (partialUri.rfind(ScanJobsDir, 0) != 0) {
+     HttpServer::onRequest(request, response);
+diff --git a/server/scanner.cpp b/server/scanner.cpp
+--- a/server/scanner.cpp
++++ b/server/scanner.cpp
+@@ -360,6 +360,9 @@
+ Scanner::Private::createJob()
+ {
+   std::lock_guard<std::mutex> lock(mJobsMutex);
++  // Each stored job owns a permanent worker thread, even before scanning.
++  if (mJobs.size() >= 16)
++    return nullptr;
+   std::string jobUuid;
+   do {
+     jobUuid = Uuid(mUuid, ::time(nullptr), ::rand()).toString();
+@@ -495,9 +498,13 @@
+   if (resolution.is_null())
+     return "missing SANE parameter: " SANE_NAME_SCAN_RESOLUTION;
+   mMinResDpi = resolution.min();
+-  mMaxResDpi = resolution.max();
++  mMaxResDpi = std::min(double(network_scanner::maximum_resolution_dpi), resolution.max());
++  if (mMinResDpi < 1 || mMinResDpi > mMaxResDpi)
++    return "no resolution within the network scanner limits";
+   mResStepDpi = resolution.quant();
+   mDiscreteResolutions = resolution.allowed_numeric_values();
++  mDiscreteResolutions.erase(std::remove_if(mDiscreteResolutions.begin(), mDiscreteResolutions.end(),
++    [this](int value) { return value < mMinResDpi || value > mMaxResDpi; }), mDiscreteResolutions.end());
+   if (mDiscreteResolutions
+         .empty()) // mopria client assumes discrete resolutions
+     mDiscreteResolutions =
+@@ -927,7 +934,8 @@
+                                       bool autoselectFormat)
+ {
+   auto job = p->createJob();
+-  job->initWithScanSettingsXml(xml, autoselectFormat, p->mDeviceOptions);
++  if (job)
++    job->initWithScanSettingsXml(xml, autoselectFormat, p->mDeviceOptions);
+   return job;
+ }
+
+diff --git a/server/scanjob.cpp b/server/scanjob.cpp
+--- a/server/scanjob.cpp
++++ b/server/scanjob.cpp
+@@ -125,6 +125,10 @@
+   std::atomic<State> mState;
+   std::atomic<const char*> mStateReason;
+   std::atomic<SANE_Status> mAdfStatus;
++  std::atomic<bool> mCancelRequested{false};
++  // WorkerThread has one callable slot. Serialize its callers, while letting a
++  // cancellation flag become visible immediately during a blocked SANE call.
++  std::mutex mOperationMutex;
+
+   std::string mScanSource, mIntent, mDocumentFormat, mColorMode;
+   int mBitDepth, mRes_dpi;
+@@ -161,6 +165,7 @@
+
+ ScanJob::~ScanJob()
+ {
++  cancel();
+   delete p;
+ }
+
+@@ -238,6 +243,10 @@
+     top = 0;
+   if (std::isnan(res_dpi))
+     res_dpi = 300;
++  if (!std::isfinite(res_dpi) || res_dpi < 1 || res_dpi > network_scanner::maximum_resolution_dpi) {
++    err = PWG_INVALID_SCAN_TICKET;
++    res_dpi = 300;
++  }
+
+   double px_per_unit = 1.0;
+   std::string units = settings.getString("ContentRegionUnits");
+@@ -251,9 +260,13 @@
+   mRes_dpi = res_dpi;
+
+   if (std::isnan(mWidth_px))
+-    mWidth_px = mpScanner->maxWidthPx300dpi();
++    mWidth_px = mpScanner->maxWidthPx300dpi() * res_dpi / 300.0;
+   if (std::isnan(mHeight_px))
+-    mHeight_px = mpScanner->maxHeightPx300dpi();
++    mHeight_px = mpScanner->maxHeightPx300dpi() * res_dpi / 300.0;
++  if (!network_scanner::scanGeometryWithinLimits(res_dpi, mLeft_px, mTop_px, mWidth_px, mHeight_px)
++      || mLeft_px + mWidth_px > mpScanner->maxWidthPx300dpi() * res_dpi / 300.0
++      || mTop_px + mHeight_px > mpScanner->maxHeightPx300dpi() * res_dpi / 300.0)
++    err = PWG_INVALID_SCAN_TICKET;
+
+   mBitDepth = 0;
+
+@@ -261,7 +274,12 @@
+   std::smatch m;
+   if (std::regex_match(esclColorMode, m, std::regex("([A-Za-z]+)([0-9]+)"))) {
+     assert(m.size() == 3);
+-    int esclBpp = atoi(m[2].str().c_str());
++    const std::string bit_count = m[2].str();
++    int esclBpp = 0;
++    if (bit_count == "8" || bit_count == "16" || bit_count == "24" || bit_count == "48")
++      esclBpp = atoi(bit_count.c_str());
++    else
++      err = PWG_INVALID_SCAN_TICKET;
+     auto c = m[1].str();
+     if (c == "RGB") {
+       mColorMode = mpScanner->colorScanModeName();
+@@ -274,6 +292,7 @@
+     }
+   }
+   if (mColorMode.empty()) {
++    mColorScan = mIntent == "Photo";
+     if (mIntent == "Photo")
+       mColorMode = mpScanner->colorScanModeName();
+     else
+@@ -329,12 +348,14 @@
+   }
+   std::clog << "job kind: " << kindString() << std::endl;
+
+-  applyDeviceOptions(options);
++  if (mBitDepth != 8 && mBitDepth != 16)
++    err = PWG_INVALID_SCAN_TICKET;
+
+   if (err) {
+     mState = aborted;
+     mStateReason = err;
+   } else {
++    applyDeviceOptions(options);
+     mState = pending;
+     mStateReason = PWG_JOB_QUEUED;
+   }
+@@ -450,6 +471,8 @@
+ const char*
+ ScanJob::Private::statusString() const
+ {
++  if (mCancelRequested)
++    return "Canceled";
+   switch (mState.load()) {
+     case ScanJob::aborted:
+       return "Aborted";
+@@ -474,6 +497,12 @@
+ void
+ ScanJob::Private::updateStatus(SANE_Status status)
+ {
++  if (mCancelRequested) {
++    mState = canceled;
++    mStateReason = PWG_JOB_CANCELED_BY_USER;
++    closeSession();
++    return;
++  }
+   mAdfStatus = SANE_STATUS_GOOD;
+   switch (status) {
+     case SANE_STATUS_GOOD:
+@@ -540,7 +569,11 @@
+       mState = aborted;
+       mStateReason = PWG_ERRORS_DETECTED;
+   }
+-  if (mState == aborted)
++  if (mCancelRequested) {
++    mState = canceled;
++    mStateReason = PWG_JOB_CANCELED_BY_USER;
++    closeSession();
++  } else if (mState == aborted)
+     closeSession();
+ }
+
+@@ -565,7 +598,7 @@
+      << "</pwg:ImagesCompleted>\r\n"
+         "<pwg:JobStateReasons>\r\n"
+         "<pwg:JobStateReason>"
+-     << p->mStateReason
++     << statusReason()
+      << "</pwg:JobStateReason>\r\n"
+         "</pwg:JobStateReasons>\r\n"
+         "</scan:JobInfo>\r\n";
+@@ -574,6 +607,7 @@
+ bool
+ ScanJob::beginTransfer()
+ {
++  std::lock_guard<std::mutex> operation_lock(p->mOperationMutex);
+   struct : WorkerThread::Callable
+   {
+     void onCall() override
+@@ -591,13 +625,22 @@
+ bool
+ ScanJob::Private::beginTransfer()
+ {
+-  if(!atomicTransition(pending, processing))
++  if(mCancelRequested || !atomicTransition(pending, processing))
+     return false;
+   bool ok = true;
+   if (!mpSession) {
+-    ok = (openSession() == SANE_STATUS_GOOD);
+-    if (ok)
++    SANE_Status status = openSession();
++    if (status != SANE_STATUS_GOOD) {
++      updateStatus(status);
++      closeSession();
++      return false;
++    }
++    if (!mCancelRequested)
+       mpSession->dump_options();
++  }
++  if (mCancelRequested) {
++    closeSession();
++    return false;
+   }
+   startSession();
+   ok = isProcessing();
+@@ -609,10 +652,14 @@
+ SANE_Status
+ ScanJob::Private::openSession()
+ {
++  if (mCancelRequested)
++    return SANE_STATUS_CANCELLED;
+   SANE_Status status = SANE_STATUS_GOOD;
+   assert(!mpSession);
+   mpSession = mpScanner->open();
+   status = mpSession->status();
++  if (mCancelRequested)
++    return SANE_STATUS_CANCELLED;
+   if (status == SANE_STATUS_GOOD) {
+
+     auto& opt = mpSession->options();
+@@ -634,6 +681,8 @@
+
+     switch (opt[SANE_NAME_SCAN_TL_X].unit()) {
+       case SANE_UNIT_PIXEL:
++        for (auto p : { &left, &right, &top, &bottom })
++          *p = ::floor(*p + 0.5);
+         break;
+       case SANE_UNIT_MM:
+         for (auto p : { &left, &right, &top, &bottom })
+@@ -642,8 +691,6 @@
+       default:
+         ok = false;
+     }
+-    for (auto p : { &left, &right, &top, &bottom })
+-      *p = ::floor(*p + 0.5);
+     opt[SANE_NAME_SCAN_TL_X] = left;
+     opt[SANE_NAME_SCAN_TL_Y] = top;
+     opt[SANE_NAME_SCAN_BR_X] = right;
+@@ -658,6 +705,10 @@
+ void
+ ScanJob::Private::startSession()
+ {
++  if (mCancelRequested) {
++    closeSession();
++    return;
++  }
+   SANE_Status status = mpSession->start().status();
+   updateStatus(status);
+ }
+@@ -665,14 +716,15 @@
+ void
+ ScanJob::Private::closeSession()
+ {
+-  if (mpSession)
+-    mpSession->cancel();
++  // session's destructor performs sane_cancel before the final sane_close.
++  // Only the permanent worker may destroy the session or its option storage.
+   mpSession.reset();
+ }
+
+ ScanJob&
+ ScanJob::finishTransfer(std::ostream& os)
+ {
++  std::lock_guard<std::mutex> operation_lock(p->mOperationMutex);
+   struct : WorkerThread::Callable
+   {
+     void onCall() override
+@@ -691,6 +743,10 @@
+ void
+ ScanJob::Private::finishTransfer(std::ostream& os)
+ {
++  if (mCancelRequested) {
++    closeSession();
++    return;
++  }
+   mLastActive = ::time(nullptr);
+   std::shared_ptr<ImageEncoder> pEncoder;
+   if (isProcessing()) {
+@@ -755,10 +811,12 @@
+       status = mpSession->read(buffer).status();
+       mLastActive = ::time(nullptr);
+       if (status == SANE_STATUS_GOOD) {
+-        // Some backends (e.g., hpaio) send more lines
+-        // than announced. Keep reading until EOF, but discard the excess.
+-        if (linesWritten >= pEncoder->height())
+-          continue;
++        if (linesWritten >= pEncoder->height()) {
++          mState = aborted;
++          mStateReason = PWG_ERRORS_DETECTED;
++          closeSession();
++          break;
++        }
+         applyGamma(buffer);
+         if (!mColorScan && mDeviceOptions.synthesize_gray)
+           synthesizeGray(buffer);
+@@ -775,27 +833,13 @@
+         }
+       }
+     }
+-    // Some backends (e.g., hpaio) may deliver fewer lines
+-    // than announced. Pad the rest of the image with white lines.
+-    if (status == SANE_STATUS_EOF && isProcessing() &&
+-        linesWritten > 0 && linesWritten < pEncoder->height()) {
+-      std::clog << "padding " << (pEncoder->height() - linesWritten)
+-                << " missing lines" << std::endl;
+-      const char white =
+-        mpSession->parameters()->depth == 1 ? char(0x00) : char(0xFF);
+-      buffer.assign(buffer.size(), white);
+-      try {
+-        while (linesWritten < pEncoder->height()) {
+-          pEncoder->writeLine(buffer.data());
+-          ++linesWritten;
+-        }
+-        os.flush();
+-      } catch (const std::runtime_error& e) {
+-        std::cerr << e.what() << ", aborting" << std::endl;
+-        mState = aborted;
+-        mStateReason = PWG_ERRORS_DETECTED;
+-        closeSession();
+-      }
++    // This model must never turn missing source rows into an apparently
++    // successful document by fabricating white pixels.
++    if (status == SANE_STATUS_EOF && isProcessing() && linesWritten != pEncoder->height()) {
++      std::clog << "incomplete scanner image" << std::endl;
++      mState = aborted;
++      mStateReason = PWG_ERRORS_DETECTED;
++      closeSession();
+     }
+     std::clog << "lines written: " << linesWritten << std::endl;
+     if (isProcessing()) {
+@@ -809,6 +853,10 @@
+       }
+     }
+   }
++  if (mCancelRequested) {
++    closeSession();
++    return;
++  }
+   if (pEncoder)
+       pEncoder->endDocument();
+   mLastActive = ::time(nullptr);
+@@ -817,16 +865,23 @@
+ ScanJob&
+ ScanJob::cancel()
+ {
++  p->mCancelRequested = true;
+   p->mState = canceled;
+   p->mStateReason = PWG_JOB_CANCELED_BY_USER;
+-  p->closeSession();
++  std::lock_guard<std::mutex> operation_lock(p->mOperationMutex);
++  struct : WorkerThread::Callable {
++    void onCall() override { p->closeSession(); }
++    Private* p = nullptr;
++  } function_call;
++  function_call.p = p;
++  p->mWorkerThread.executeSynchronously(function_call);
+   return *this;
+ }
+
+ ScanJob::State
+ ScanJob::state() const
+ {
+-  return p->mState;
++  return p->mCancelRequested ? canceled : p->mState.load();
+ }
+
+ std::string
+@@ -838,7 +893,7 @@
+ std::string
+ ScanJob::statusReason() const
+ {
+-  return std::string(p->mStateReason);
++  return std::string(p->mCancelRequested ? PWG_JOB_CANCELED_BY_USER : p->mStateReason.load());
+ }
+
+ bool
+@@ -868,18 +923,20 @@
+ bool
+ ScanJob::Private::isPending() const
+ {
+-  return mState == pending;
++  return !mCancelRequested && mState == pending;
+ }
+
+ bool
+ ScanJob::Private::isProcessing() const
+ {
+-  return mState == processing;
++  return !mCancelRequested && mState == processing;
+ }
+
+ bool
+ ScanJob::Private::isFinished() const
+ {
++  if (mCancelRequested)
++    return true;
+   switch (mState.load()) {
+     case pending:
+     case processing:
+@@ -895,5 +952,5 @@
+ bool
+ ScanJob::Private::isAborted() const
+ {
+-  return mState == aborted;
+-}
++  return !mCancelRequested && mState == aborted;
++}
+diff --git a/web/httpserver.cpp b/web/httpserver.cpp
+--- a/web/httpserver.cpp
++++ b/web/httpserver.cpp
+@@ -25,6 +25,8 @@
+ #include <sstream>
+ #include <thread>
+ #include <mutex>
++#include <condition_variable>
++#include <stdexcept>
+
+ #include <arpa/inet.h>
+ #ifdef __FreeBSD__
+@@ -39,13 +41,15 @@
+ #include <sys/socket.h>
+ #include <sys/un.h>
+ #include <sys/stat.h>
++#include <sys/time.h>
+ #include <unistd.h>
+
+ #include "web/accessfile.h"
+ #include "basic/fdbuf.h"
+ #include "errorpage.h"
+-
+-static const size_t kMaxRequestLength = 1024 * 1024; // bytes
++#include "network_scanner/device_access.h"
++
++static const size_t kMaxRequestLength = network_scanner::maximum_ticket_bytes;
+ static const size_t kMaxHeaderLine = 8192;
+ static const size_t kMaxHeaderTotal = 64 * 1024;
+
+@@ -230,6 +234,15 @@
+
+   std::atomic<bool> mRunning;
+   std::atomic<int> mPipeWriteFd;
++  std::atomic<int> mActiveHandlers{0};
++  std::mutex mHandlerMutex;
++  std::condition_variable mHandlersFinished;
++
++  void handlerFinished() {
++    std::lock_guard<std::mutex> lock(mHandlerMutex);
++    --mActiveHandlers;
++    mHandlersFinished.notify_all();
++  }
+
+   Private(HttpServer* instance)
+     : mInstance(instance)
+@@ -365,9 +378,40 @@
+               socklen_t len = sizeof(addr);
+               int fd = ::accept(pfds[i].fd, &addr.sa, &len);
+               if (fd >= 0)
+-                std::thread([this, fd, addr]() {
+-                  handleRequest(fd, addr);
+-                }).detach();
++              {
++                const struct timeval client_timeout = {30, 0};
++                if (::setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &client_timeout, sizeof(client_timeout)) != 0
++                    || ::setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &client_timeout, sizeof(client_timeout)) != 0) {
++                  ::close(fd);
++                  continue;
++                }
++                if (mActiveHandlers.fetch_add(1) >= 8) {
++                  handlerFinished();
++                  ::close(fd);
++                  continue;
++                }
++                std::thread handler;
++                try {
++                  handler = std::thread([this, fd, addr]() {
++                    try {
++                      handleRequest(fd, addr);
++                    } catch (...) {
++                      std::clog << "HTTP request handler failed" << std::endl;
++                    }
++                    handlerFinished();
++                  });
++                } catch (...) {
++                  handlerFinished();
++                  ::close(fd);
++                  continue;
++                }
++                try {
++                  handler.detach();
++                } catch (...) {
++                  if (handler.joinable())
++                    handler.join();
++                }
++              }
+             }
+           }
+         } else if (r < 0 && errno != EINTR) {
+@@ -379,6 +423,12 @@
+       for (size_t i = 1; i < pfds.size(); ++i)
+         ::close(pfds[i].fd);
+     }
++    // Keep scanner objects alive until their bounded HTTP handlers finish.
++    // The external process watchdog remains responsible for blocked backends.
++    {
++      std::unique_lock<std::mutex> lock(mHandlerMutex);
++      mHandlersFinished.wait(lock, [this] { return mActiveHandlers == 0; });
++    }
+     mLastError = err;
+     if (err && !mTerminationStatus)
+       mTerminationStatus = -1;
+@@ -401,14 +451,14 @@
+
+   void handleRequest(int fd, Sockaddr address)
+   {
++    // Own the descriptor before any access check can throw.
++    fdbuf buf(fd);
+     std::unique_lock<std::mutex> lock(mAccessFileMutex);
+     if (!mAccessFile.isAllowed(address)) {
+-      ::close(fd);
+       return;
+     }
+     lock.unlock();
+
+-    fdbuf buf(fd);
+     std::istream is(&buf);
+     std::ostream os(&buf);
+     Request request(is, kMaxRequestLength);
+@@ -772,20 +822,22 @@
+         mValid = false;
+       else {
+         auto key = ctolower(ctrim(line.substr(0, pos)));
+-        auto value = ctrim(line.substr(pos + 1));
+-        mHeaders[key] = value;
++        auto value = line.substr(pos + 1, line.size() - pos - 2);
++        size_t first = value.find_first_not_of(" \t");
++        size_t last = value.find_last_not_of(" \t");
++        value = first == std::string::npos ? "" : value.substr(first, last - first + 1);
++        if (key == HTTP_HEADER_CONTENT_LENGTH && mHeaders.hasKey(key))
++          mValid = false;
++        else
++          mHeaders[key] = value;
+       }
+     }
+   }
+-  if (mHeaders.hasKey(HTTP_HEADER_CONTENT_LENGTH)) {
+-    double length = mHeaders.getNumber(HTTP_HEADER_CONTENT_LENGTH);
+-    if (std::isnan(length) || length > maxLength) {
+-      mValid = false;
+-    }
+-    else {
+-      mContentLength = length;
+-    }
+-  }
++  if (line != "\r" || mHeaders.hasKey(HTTP_HEADER_TRANSFER_ENCODING))
++    mValid = false;
++  if (mHeaders.hasKey(HTTP_HEADER_CONTENT_LENGTH)
++      && !network_scanner::parseRequestContentLength(mHeaders.getString(HTTP_HEADER_CONTENT_LENGTH), maxLength, mContentLength))
++    mValid = false;
+ }
+
+ const std::string&
+@@ -795,6 +847,8 @@
+   if (mContent.empty() && length >= 0) {
+     mContent.resize(length);
+     mStream.read(const_cast<char*>(mContent.data()), mContent.size());
++    if (mStream.gcount() != length)
++      throw std::runtime_error("The HTTP request body is incomplete.");
+   }
+   return mContent;
+ }

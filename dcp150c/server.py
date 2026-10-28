@@ -40,6 +40,7 @@ ASSETS = {
     "/assets/backups.js": ("backups.js", "text/javascript; charset=utf-8"),
     "/assets/media.js": ("media.js", "text/javascript; charset=utf-8"),
     "/assets/scan-button.js": ("scan-button.js", "text/javascript; charset=utf-8"),
+    "/assets/network-scanner.js": ("network-scanner.js", "text/javascript; charset=utf-8"),
     "/assets/styles.css": ("styles.css", "text/css; charset=utf-8"),
     "/favicon.svg": ("favicon.svg", "image/svg+xml"),
 }
@@ -311,6 +312,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 result = {"job": center.preview_scan(values, request_key)}
             elif path == "/api/scan-button/settings":
                 result = {"scan_button": center.scan_button.configure(values)}
+            elif path == "/api/network-scanner/settings":
+                result = {"network_scanner": center.network_scanner.configure(values)}
+            elif path == "/api/network-scanner/restart":
+                result = {"network_scanner": center.network_scanner.restart(values)}
             elif path == "/api/media/probe":
                 result = {"job": center.detect_media(values, request_key)}
             elif len(parts) == 4 and parts[:3] == ["api", "media", "directories"]:

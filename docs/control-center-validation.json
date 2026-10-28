@@ -1,8 +1,8 @@
 {
   "date": "2026-10-28",
-  "scope": "Offline Control Center, documents, neural OCR, memory cards, scan-button receiver and native scanner software verification",
+  "scope": "Offline Control Center, documents, neural OCR, memory cards, scan-button receiver, native scanner software and optional eSCL LAN sharing",
   "python_workflows": {
-    "tests": 149,
+    "tests": 196,
     "hardware_submissions": false,
     "includes": [
       "Authenticated HTTP requests and protected downloads",
@@ -29,7 +29,14 @@
       "Native USB control ABI compared with compiled Linux headers; exact one input request and model/device identity boundaries",
       "Opt-in scan-button profiles, two-reading baseline, durable reservations, duplicate suppression, restart and cancellation races",
       "Constructed button events drive actual document/OCR pipelines and isolated SANE acquisition",
-      "Empty-result OCR retry recovers text on a coloured background, preserves colours and honours cancellation"
+      "Empty-result OCR retry recovers text on a coloured background, preserves colours and honours cancellation",
+      "Optional eSCL service defaults off, persists settings and latches failures without replaying acquisitions",
+      "Native shared-lock ownership through init, enumeration, options, acquisition, cancellation, close and exit",
+      "Real concurrent cancellation during open, options and read, followed by another successful acquisition",
+      "Complete PNG, JPEG and PDF output through a real eSCL server and sane-airscan client with an isolated SANE test backend",
+      "Actual subprocess termination retains the device lock until child exit; stuck operations are not restarted automatically",
+      "Eight HTTP handlers, sixteen native job records and strict 64 KiB tickets bound local resource use",
+      "Optional installer preserves foreign paths and sets traversable runtime directories even with a private umask"
     ]
   },
   "browser_request_recovery": {
@@ -133,7 +140,8 @@
     "Switch between scanning, printing and ink polling",
     "Confirm additional physical print settings and USB reconnection",
     "Enumerate and read a physical memory card through the printer-owned block device",
-    "Observe physical scan-button responses, repeated/held presses, required preparation and reconnect recovery"
+    "Observe physical scan-button responses, repeated/held presses, required preparation and reconnect recovery",
+    "Physical eSCL client discovery, image acquisition and cancellation through the optional LAN share"
   ],
   "physical_prints_or_scans_during_this_work": 0,
   "document_backup": {
@@ -235,5 +243,56 @@
     "maximum_retries_per_page": 1,
     "method": "local Sauvola thresholding on the same saved image",
     "original_colours_preserved": true
+  },
+  "network_scanner": {
+    "protocol": "eSCL",
+    "server": "AirSane",
+    "upstream_version": "0.4.15",
+    "upstream_revision": "ac117f185e06afc7c3557f9839a42d8fd9fd18fa",
+    "source_archive_sha256": "53e5f168379893495efbb31284b97352ae6a7ff5662c405a717232c874a7ff78",
+    "patch_sha256": "02fe975c9580caead799984bee4d113fd6cc2b0515d3316f9f0bc0baca15586b",
+    "enabled_by_default": false,
+    "physical_scan_verified": false,
+    "native_helper_and_stub_checks": 21,
+    "supervisor_and_http_checks": 13,
+    "installer_boundary_checks": 6,
+    "full_network_workflows": 7,
+    "browser_module_checks": 15,
+    "real_browser_checks": 10,
+    "architectures_built_and_verified": [
+      "aarch64",
+      "armv7"
+    ],
+    "client_verified": "sane-airscan with automatic discovery disabled",
+    "acquisition_backend": "isolated SANE test backend; no physical scanner backend loaded",
+    "virtual_image_formats": [
+      "image/png",
+      "image/jpeg",
+      "application/pdf"
+    ],
+    "real_browser_languages": [
+      "de",
+      "en"
+    ],
+    "real_browser_viewport_widths": [
+      320,
+      360,
+      1440
+    ],
+    "remaining_checks": [
+      "Physical DCP-150C image, cancellation and subsequent printing",
+      "Physical network scanner discovery and acquisition with the desired client programs"
+    ],
+    "limits": {
+      "maximum_resolution_dpi": 600,
+      "maximum_scan_pixels": 40000000,
+      "http_handlers": 8,
+      "job_records": 16,
+      "scan_ticket_bytes": 65536,
+      "socket_inactivity_seconds": 30,
+      "metadata_seconds": 60,
+      "acquisition_seconds": 180,
+      "termination_grace_seconds": 5
+    }
   }
 }

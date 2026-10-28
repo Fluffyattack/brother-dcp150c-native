@@ -15,6 +15,7 @@ from .backup_service import BackupService
 from .document_storage import DocumentStorage, StorageError, document_name
 from .job_manager import JobManager
 from .media_reader import MediaReaderService
+from .network_scanner_service import NetworkScannerService
 from .scanner_service import ScannerService
 from .scan_button_service import ScanButtonService
 from .scan_sessions import ScanSessions
@@ -65,6 +66,7 @@ class ControlCenter:
         self.backups = BackupService(self.storage, self.processor, self.validate_profile, self.export_settings)
         self.scan_button = ScanButtonService(self.storage, self.jobs,
             self._resolve_scan_button_binding, self._perform_scan_button_action, lock_path=lock_path)
+        self.network_scanner = NetworkScannerService(self.storage, lock_path=lock_path)
         self.storage.prune()
         self._maintenance_stop = threading.Event()
         self._maintenance_worker = threading.Thread(target=self._maintain, name="dcp150c-retention", daemon=False)
@@ -82,7 +84,8 @@ class ControlCenter:
                 "scan_sessions": self.scan_sessions.list(), "backups": self.backups.list(),
                 "backup_upload_limit": self.backups.maximum_upload_bytes,
                 "job_history_policy": self.jobs.history_policy(), "media_listing": media_listing,
-                "scan_button": self.scan_button.snapshot()}
+                "scan_button": self.scan_button.snapshot(),
+                "network_scanner": self.network_scanner.snapshot()}
 
     def _resolve_scan_button_binding(self, action: str, binding: dict) -> dict:
         self.require_documents()
@@ -499,6 +502,7 @@ class ControlCenter:
         return {"settings": self.storage.settings(), "profiles": self.storage.profiles()}
 
     def close(self) -> None:
+        self.network_scanner.close()
         self.scan_button.close()
         self.jobs.close()
         self._maintenance_stop.set()

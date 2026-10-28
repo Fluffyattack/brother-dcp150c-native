@@ -8,15 +8,16 @@
   <title data-translation="page.title">Brother DCP-150C · Printer status</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/assets/styles.css?v=3">
-  <link rel="stylesheet" href="/assets/control-center.css?v=7">
-  <script src="/assets/translations.js?v=9" defer></script>
+  <link rel="stylesheet" href="/assets/control-center.css?v=8">
+  <script src="/assets/translations.js?v=10" defer></script>
   <script src="/assets/app.js?v=3" defer></script>
-  <script src="/assets/control-center.js?v=7" defer></script>
+  <script src="/assets/control-center.js?v=8" defer></script>
   <script src="/assets/scan-sessions.js?v=2" defer></script>
   <script src="/assets/scan-area.js?v=1" defer></script>
   <script src="/assets/backups.js?v=1" defer></script>
   <script src="/assets/media.js?v=1" defer></script>
   <script src="/assets/scan-button.js?v=1" defer></script>
+  <script src="/assets/network-scanner.js?v=1" defer></script>
 </head>
 <body>
   <div class="shell">
@@ -242,6 +243,21 @@
 
       <section id="view-settings" class="control-view" role="tabpanel" aria-labelledby="tab-settings" hidden>
         <div class="view-heading"><div><p class="eyebrow" data-translation="control.local_settings">YOUR LOCAL CONTROL CENTER</p><h2 data-translation="control.settings">Settings</h2><p data-translation="settings.introduction">Manage document storage and move your preferences between installations.</p></div></div>
+        <form id="network-scanner-form" class="workspace-card network-scanner-settings" aria-labelledby="network-scanner-heading">
+          <div class="card-heading"><h3 id="network-scanner-heading" data-translation="network_scanner.heading">Share the scanner on your home network</h3><span class="badge" data-translation="network_scanner.preview">PREVIEW</span></div>
+          <p class="body-copy" data-translation="network_scanner.introduction">Use compatible scanning apps on Windows, macOS or Linux through the eSCL network scanning protocol. This optional sharing starts switched off.</p>
+          <p id="network-scanner-status" class="capability-note" role="status" aria-live="polite"></p>
+          <p class="field-help network-scanner-access-note" data-translation="network_scanner.access_help">Devices on your chosen home network can start scans without your Dashboard password. Files arrive in the scanning app, rather than the Control Center document library.</p>
+          <p id="network-scanner-hardware-note" class="field-help" data-translation="network_scanner.hardware_pending">This preview still needs to be tested with a physical scanner and your scanning app.</p>
+          <label class="checkbox-label"><input id="network-scanner-enabled" name="enabled" type="checkbox"><span data-translation="network_scanner.enable">Allow scanning apps on my home network</span></label>
+          <div class="form-row"><label><span data-translation="network_scanner.interface">Home network connection</span><select id="network-scanner-interface" name="interface" aria-describedby="network-scanner-interface-note network-scanner-addresses"></select></label><label><span data-translation="network_scanner.port">Network port</span><input id="network-scanner-port" name="port" type="number" min="1024" max="65535" step="1" inputmode="numeric" value="8090" required aria-describedby="network-scanner-port-note"></label></div>
+          <p id="network-scanner-interface-note" class="field-help"></p><p id="network-scanner-addresses" class="field-help network-scanner-addresses"></p>
+          <p id="network-scanner-port-note" class="field-help" data-translation="network_scanner.port_help">Use port 8090 unless another app already uses it. This sharing is for scanning apps on the same home network.</p>
+          <div class="button-row"><button id="network-scanner-save" class="primary-button" type="submit" data-translation="network_scanner.save">Save scanner sharing</button><button id="network-scanner-reload" class="secondary-button" type="button" data-translation="network_scanner.reload" hidden>Load saved settings</button><button id="network-scanner-restart" class="secondary-button" type="button" data-translation="network_scanner.restart">Restart sharing</button></div>
+          <p id="network-scanner-save-note" class="field-help" role="status" aria-live="polite"></p>
+          <p id="network-scanner-active-operation" class="field-help" role="status"></p>
+          <p class="field-help" data-translation="network_scanner.restart_help">Restart uses the saved settings after an error. Save or discard any pending changes first. Restarting does not start a scan.</p>
+        </form>
         <details id="maintenance-guidance" class="workspace-card backup-tools">
           <summary data-translation="maintenance.heading">Maintenance at the printer</summary>
           <p class="field-help" data-translation="maintenance.help">These instructions open the model's official manual. Device actions are performed at the printer; this panel sends no maintenance commands.</p>

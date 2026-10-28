@@ -104,6 +104,8 @@ Profiles also provide an opt-in scan-button receiver for Image, File, Share and 
 
 Scanning requires a compatible native SANE backend and an explicit connection check, either from the browser or as part of an accepted button request. An [optional native scanner source build](docs/scanner-setup.md) preserves this model's older protocol and builds its decoder for ARM. The browser does not start discovery or scanning on page load. Copying starts printing only after a scan has succeeded. Maintenance commands still need separate device evidence before activation.
 
+An [optional network scanner](docs/network-scanner.md) uses a pinned, modified AirSane build to provide eSCL access to local scanner programs. It starts disabled, uses the same device lock and stops failed acquisitions without replaying them. Enabling the share permits scanner clients on the selected local network to request images without the dashboard password; clients save those images themselves. Physical scanning and discovery acceptance remain separate from the isolated virtual-backend checks.
+
 See the [installation guide](packaging/README.md#control-center-documents-and-password) for private storage, access and removal. The automated workflow runs document/OCR and protected HTTP tests without submitting physical printer jobs.
 
 ## Install native printing
@@ -170,6 +172,7 @@ sudo scripts/install.sh --filter build/armv6/bh7filter --allow-unverified-filter
 | `dcp150c/document_storage.py`, `job_manager.py` | Private files, retention and durable background jobs |
 | `dcp150c/document_processing.py`, `ocr_service.py` | Page editing, previews and searchable documents |
 | `dcp150c/printing_service.py`, `scanner_service.py` | Explicit printing and serialized scanner operations |
+| `dcp150c/network_scanner_service.py`, `src/network_scanner/` | Optional LAN scanning, supervised process and shared native device access |
 | `dcp150c/static/` | Responsive browser interface and translations |
 | `packaging/`, `scripts/` | Print-service integration and installation |
 
@@ -190,4 +193,4 @@ This project targets the DCP-150C inkjet engine. It is independent of Brother In
 
 ## Licenses
 
-Original project code is licensed under [GPL-2.0-or-later](LICENSE). Printer calibration data is distributed under the separate [Brother software license](data/BROTHER-LICENSE.txt). Static ARMv6 builds also include musl and GCC runtime code; their notices are in [LICENSES](LICENSES/). Keep all applicable notices with redistributed software.
+Original project code is licensed under [GPL-2.0-or-later](LICENSE). The optional modified AirSane build and its C++ helper use [GPL-3.0-or-later](LICENSES/AirSane-GPL-3.0.txt); the builder and installer keep the modified source, patch and upstream license with that component. Printer calibration data is distributed under the separate [Brother software license](data/BROTHER-LICENSE.txt). Static ARMv6 builds also include musl and GCC runtime code; their notices are in [LICENSES](LICENSES/). Keep all applicable notices with redistributed software.

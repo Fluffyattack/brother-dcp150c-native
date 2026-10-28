@@ -173,6 +173,14 @@ button[aria-busy="true"] { opacity:.6; cursor:progress }
 .scan-button-status-details .field-help { margin:0 }
 .scan-button-settings .scan-button-error { color:#efb6af }
 .scan-button-settings .button-row>* { max-width:100%; overflow-wrap:anywhere; text-align:center }
+.network-scanner-settings { margin-bottom:24px }
+.network-scanner-settings .form-row { grid-template-columns:minmax(0,2fr) minmax(0,1fr) }
+.network-scanner-settings label,.network-scanner-addresses { overflow-wrap:anywhere }
+.network-scanner-settings .network-scanner-access-note { color:#c3c5b5 }
+.network-scanner-settings .network-scanner-error { color:#efb6af }
+.network-scanner-settings .button-row>* { max-width:100%; overflow-wrap:anywhere; text-align:center }
+.network-scanner-settings .field-help:last-child { margin-bottom:0 }
+@media(max-width:500px) { .network-scanner-settings .form-row { grid-template-columns:1fr } }
 @media(max-width:650px) { .scan-button-bindings { grid-template-columns:1fr } }
 @media(max-width:500px) {
   .media-entry { flex-wrap:wrap; gap:10px }

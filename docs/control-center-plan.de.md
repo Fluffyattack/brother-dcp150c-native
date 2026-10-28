@@ -96,7 +96,7 @@ Profile werden vor der Verwendung gegen die verfügbaren Fähigkeiten geprüft. 
 | Speicherkarte und PhotoCapture | FAT12/16/32-Leser und JPEG-/PNG-/PDF-Import mit Dokumentvorschau und Druckformular implementiert | Software mit regulären Dateisystemabbildern geprüft; echte Datenträgerbereitstellung des Druckers noch am Gerät bestätigen |
 | Wartung | Anleitung und Gerätestatus bündeln; später unterstützte Prüf- und Wartungsaktionen | Gerätebefehle und Auswirkungen klären und am Gerät testen |
 | Historie | Eigene Aufträge mit Status und Datum implementiert; offene Vorgänge bleiben sichtbar | Jüngste 50 Einträge in der Anzeige; Kennungen und Zustandsmetadaten dauerhaft im privaten Zustandsspeicher, getrennt von Dokumentdateien |
-| Weitergabe als Netzwerkscanner | Nutzung durch geeignete Scannerprogramme prüfen | Native Scanner-Anbindung zuerst zuverlässig herstellen |
+| Weitergabe als Netzwerkscanner | Optionale eSCL-Freigabe mit AirSane, eigener LAN-Auswahl, gemeinsamer Gerätesperre und beaufsichtigtem Prozess | Softwareprüfung mit isoliertem virtuellen Scanner; echte Aufnahme und Erkennung durch Scannerprogramme am Gerät noch bestätigen |
 
 Der DCP-150C unterstützt PhotoCapture für die vorgesehenen Karten und USB-Medien. Der Browser-Leser öffnet nur zu diesem Druckermodell gehörende Blockgeräte und verändert die Karte nicht. Die mit Abbildern geprüfte Integration belegt noch nicht den USB-Pfad des physischen Kartenlesers. [Brother Geräte-Handbuch, PhotoCapture-Kapitel](https://download.brother.com/welcome/doc002242/cv_dcp135_ukeng_usr.pdf#page=35)
 
@@ -119,7 +119,7 @@ flowchart TD
     Verwaltung --> Druck[Drucken über CUPS]
     Verwaltung --> Scan[Native Scanner-Anbindung]
     Verwaltung --> Dateien[Dokumente und Vorschauen]
-    Dateien --> Text[Optionale Texterkennung auf dem stärkeren Pi]
+    Dateien --> Text[Lokale Texterkennung auf dem Drucker-Pi]
     Druck --> Geraet[Brother DCP-150C am Drucker-Pi]
     Scan --> Geraet
 ```

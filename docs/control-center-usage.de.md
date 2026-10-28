@@ -84,6 +84,14 @@ Dokumente erhalten neue Kennungen, ihre bisherigen Namen und Erstellungsdaten bl
 
 Das entpackte Archiv und alle vorhandenen Dokumente müssen in das aktuelle Speicherlimit passen. Große Uploads können zusätzlich durch den Fernzugang begrenzt werden; verwende dann die lokale Adresse des Drucker-Pis. Hochladen und Wiederherstellen laufen ohne das Einlesen des gesamten Archivs in den Arbeitsspeicher.
 
+## Freigabe als Netzwerkscanner
+
+Die optionale Karte **Einstellungen → Netzwerkscanner** ist zunächst ausgeschaltet. Nach der [Installation der zusätzlichen Komponente](network-scanner.md) wählst du die lokale Netzwerkverbindung und einen freien Port aus. Beim Einschalten erscheint eine Bestätigung: Programme im gewählten Heimnetz dürfen dann ohne das Dashboard-Passwort Scans anfordern. Sie speichern die erhaltenen Dateien selbst; die Aufnahmen werden nicht automatisch in die Dokumentverwaltung übernommen.
+
+Die Freigabe verwendet das eSCL-Protokoll für kompatible Scannerprogramme und die gemeinsame Gerätesperre. Das Öffnen der Einstellungen startet keinen Scan. Eine Aktivierung oder ein bewusster Neustart startet den Dienst und seine Geräteerkennung. Nach einem Fehler erfolgt kein erneuter Aufnahmeversuch. **Freigabe neu starten** stellt den Dienst wieder bereit; nach einer geänderten Netzwerkadresse oder dem Anschließen des Druckers kann dies erforderlich sein. Ausschalten beendet auch eine gerade über diese Freigabe laufende Aufnahme.
+
+Der geschützte Fernzugang zum Dashboard und die lokale Scannerfreigabe haben getrennte Adressen. Für unterwegs verwendest du die Scan-Funktionen im angemeldeten Browser. Die optionale Netzwerkfreigabe bleibt eine Vorschau, bis echte Aufnahmen und die Erkennung durch die gewünschten Scanprogramme am Gerät bestätigt sind.
+
 ## Wartungshinweise
 
 Unter **Einstellungen → Wartung am Drucker** findest du modellbezogene Hinweise mit Links zu den betreffenden Seiten des [offiziellen Brother-Handbuchs](https://download.brother.com/welcome/doc002242/cv_dcp135_ukeng_usr.pdf#page=72). Geräteaktionen führst du am Drucker aus.
