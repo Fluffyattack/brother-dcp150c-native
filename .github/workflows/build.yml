@@ -57,11 +57,13 @@ jobs:
           node --check dcp150c/static/control-center.js
           node --check dcp150c/static/scan-sessions.js
           node --check dcp150c/static/scan-area.js
+          node --check dcp150c/static/backups.js
       - name: Verify document workflows and protected browser actions offline
         run: |
           python3 -m unittest discover -s verification -p 'test_*.py' -v
           node verification/test_control_center_requests.cjs
           node verification/test_scan_area_geometry.cjs
+          node verification/test_backup_browser.cjs
       - name: Package binaries with their source and runtime data
         run: scripts/package-armv6.sh
       - name: Upload the Pi package

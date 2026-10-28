@@ -11,6 +11,7 @@ from pathlib import Path
 import threading
 
 from .access_control import AccessControl
+from .backup_service import BackupService
 from .document_storage import DocumentStorage, StorageError, document_name
 from .job_manager import JobManager
 from .scanner_service import ScannerService
@@ -56,6 +57,7 @@ class ControlCenter:
         self.scan_sessions = ScanSessions(self.storage, self.jobs, validate_settings=self._scan_settings,
             capture_document=lambda values, event: self._scan_to_document(values, event, generate_preview=False),
             combine_pages=self._finish_scan_pages, queue_preview=self._queue_preview)
+        self.backups = BackupService(self.storage, self.processor, self.validate_profile, self.export_settings)
         self.storage.prune()
         self._maintenance_stop = threading.Event()
         self._maintenance_worker = threading.Thread(target=self._maintain, name="dcp150c-retention", daemon=False)
@@ -66,7 +68,27 @@ class ControlCenter:
         capabilities.update(scanner=self.scanner.capabilities(), authentication_configured=self.access.configured)
         return {"capabilities": capabilities, "documents": self.storage.list(), "jobs": self.jobs.list(),
                 "profiles": self.storage.profiles(), "settings": self.storage.settings(),
-                "scan_sessions": self.scan_sessions.list()}
+                "scan_sessions": self.scan_sessions.list(), "backups": self.backups.list(),
+                "backup_upload_limit": self.backups.maximum_upload_bytes}
+
+    def create_backup(self, values: dict, key: str | None) -> dict:
+        settings = self.backups.validate_selection(values)
+        def reserve(_identifier):
+            for identifier in settings["document_ids"]:
+                self.storage.get(identifier)
+        return self.jobs.submit("backup_export", settings,
+            lambda event, _identifier: self.backups.export(settings, event), key, on_reserved=reserve)
+
+    def restore_backup(self, archive_id: str, archive_sha256: str, restore_settings: bool, key: str | None) -> dict:
+        self.require_documents()
+        parameters = {"archive_sha256": archive_sha256, "restore_settings": restore_settings}
+        def reserve(identifier):
+            # Keep the transient path out of the request hash: a retry streams
+            # identical bytes into a new file but must reuse the accepted job.
+            self.storage.connection.execute("UPDATE jobs SET parameters=? WHERE id=?", (
+                json.dumps({**parameters, "archive_id": archive_id}), identifier))
+        return self.jobs.submit("backup_restore", parameters,
+            lambda event, _identifier: self.backups.restore(archive_id, restore_settings, event), key, on_reserved=reserve)
 
     def require_documents(self) -> None:
         if self.processor is None or not self._capabilities["documents"].get("available"):
@@ -352,6 +374,7 @@ class ControlCenter:
             try:
                 self.scan_sessions.recover()
                 self.storage.prune()
+                self.backups.prune()
                 if not self.printing:
                     continue
                 for job in self.jobs.unfinished_print_jobs():

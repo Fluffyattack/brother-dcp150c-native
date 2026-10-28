@@ -2,7 +2,7 @@
   "date": "2026-10-28",
   "scope": "Offline Control Center, document, OCR and native scanner software verification",
   "python_workflows": {
-    "tests": 52,
+    "tests": 67,
     "hardware_submissions": false,
     "includes": [
       "Authenticated HTTP requests and protected downloads",
@@ -14,11 +14,15 @@
       "Isolated SANE virtual scanner acquisition and shared locking",
       "Durable next-page sessions, original retention and revision conflict handling",
       "Actual ordered multipage PDF output and optional OCR",
-      "Queued and running cancellation without repeating scanner work"
+      "Queued and running cancellation without repeating scanner work",
+      "Selected original-file backup with dates, keep flags, scan metadata and OCR text",
+      "Atomic restore with preferences, disk-failure rollback and cancellation during commit",
+      "Archive path, symlink, duplicate member, central-directory and checksum validation",
+      "Prepared archive expiry, fresh installation restore and repeated-response protection"
     ]
   },
   "browser_request_recovery": {
-    "tests": 14,
+    "tests": 16,
     "includes": [
       "Lost response and page reload reuse the accepted operation",
       "Explicit new operation after a known response gets a new identifier",
@@ -29,7 +33,8 @@
       "Login refreshes stale anonymous sessions",
       "Feedback and paper choices update with the selected language",
       "Lost new-document and next-page responses reuse their workflow identifiers",
-      "Saved scanner settings restore after delayed discovery without overwriting subsequent choices"
+      "Saved scanner settings restore after delayed discovery without overwriting subsequent choices",
+      "Lost backup export and streamed restore responses reuse their operation identifiers without storing raw ZIP data"
     ]
   },
   "existing_print_installation_checks": 14,
@@ -39,29 +44,72 @@
     "real_browser_checks": 9,
     "backend_used_for_acquisition": "isolated SANE test backend",
     "hardware_verified": false,
-    "includes": ["Whole-glass low-resolution preview", "Mouse, touch and numeric selection", "Physical millimetres to actual scanner arguments", "Real output pixel dimensions at a different resolution", "Preview metadata after restart", "Profile and multipage preservation", "Explicit copy-region confirmation", "Original document schema compatibility"]
+    "includes": [
+      "Whole-glass low-resolution preview",
+      "Mouse, touch and numeric selection",
+      "Physical millimetres to actual scanner arguments",
+      "Real output pixel dimensions at a different resolution",
+      "Preview metadata after restart",
+      "Profile and multipage preservation",
+      "Explicit copy-region confirmation",
+      "Original document schema compatibility"
+    ]
   },
   "multipage_scanning": {
     "software_checks": 13,
     "real_browser_checks": 9,
     "backend_used_for_acquisition": "isolated SANE test backend",
     "hardware_verified": false,
-    "includes": ["First and next page", "Browser reload and setting restoration", "Reordering", "Rotation and crop", "Original-file preservation", "Two-page PDF download", "Optional real OCR", "25-page bound", "Parallel-window and repeated-request protection", "Interrupted restart recovery"]
+    "includes": [
+      "First and next page",
+      "Browser reload and setting restoration",
+      "Reordering",
+      "Rotation and crop",
+      "Original-file preservation",
+      "Two-page PDF download",
+      "Optional real OCR",
+      "25-page bound",
+      "Parallel-window and repeated-request protection",
+      "Interrupted restart recovery"
+    ]
   },
   "real_browser_workflows": {
     "passed": 14,
     "javascript_errors": 0,
-    "languages": ["de", "en"],
-    "viewport_widths": [320, 360, 1440],
+    "languages": [
+      "de",
+      "en"
+    ],
+    "viewport_widths": [
+      320,
+      360,
+      1440
+    ],
     "physical_device_operations": false,
-    "includes": ["Login", "PDF upload and preview", "Page editing and download", "Actual OCR", "Profiles", "Print confirmation without submission", "Lost response and reload", "Export and logout"]
+    "includes": [
+      "Login",
+      "PDF upload and preview",
+      "Page editing and download",
+      "Actual OCR",
+      "Profiles",
+      "Print confirmation without submission",
+      "Lost response and reload",
+      "Export and logout"
+    ]
   },
   "native_scanner": {
     "protocol": "brscan2",
-    "architectures_loaded": ["aarch64", "armv7"],
+    "architectures_loaded": [
+      "aarch64",
+      "armv7"
+    ],
     "decoder_output_comparisons": 231,
     "decoder_vectors_per_architecture": 77,
-    "architectures_compared": ["aarch64", "armv7_cross_build", "armv7_target_build"],
+    "architectures_compared": [
+      "aarch64",
+      "armv7_cross_build",
+      "armv7_target_build"
+    ],
     "target_decoder_sha256": "3b02037ec53999e6a673ba15033fda3b72a09bf8720a7d47d6c13252ef1ab3f8",
     "installer_staging_checks": 4,
     "physical_scan_verified": false,
@@ -73,5 +121,22 @@
     "Switch between scanning, printing and ink polling",
     "Confirm additional physical print settings and USB reconnection"
   ],
-  "physical_prints_or_scans_during_this_work": 0
+  "physical_prints_or_scans_during_this_work": 0,
+  "document_backup": {
+    "software_checks": 15,
+    "browser_fingerprint_checks": 3,
+    "real_browser_checks": 9,
+    "physical_device_operations": false,
+    "includes": [
+      "Selected documents and optional preferences",
+      "Actual authenticated ZIP download and streamed upload",
+      "Preserved original files, dates, OCR text and scan metadata",
+      "Fresh-installation restore",
+      "All-or-nothing commit and cancellation",
+      "One-hour prepared download expiry and explicit deletion",
+      "Private views cleared on sign-out",
+      "German and English at 320, 360 and 1440 pixels",
+      "Official maintenance links without device commands"
+    ]
+  }
 }

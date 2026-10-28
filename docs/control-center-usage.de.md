@@ -44,6 +44,22 @@ Profile merken benannte Einstellungen für Drucken, Scannen, OCR oder Kopieren. 
 
 Der Einstellungsexport enthält Profile und Aufbewahrungseinstellungen. Passwörter, Anmeldesitzungen und Dokumentinhalte gehören nicht dazu. Eine Anmeldung läuft spätestens nach zwölf Stunden ab. Melde dich an gemeinsam genutzten Geräten wieder ab.
 
+## Dokumente sichern und wiederherstellen
+
+Markiere die gewünschten Dateien unter **Dokumente** und wähle **Ausgewählte Dokumente sichern**. Unter **Einstellungen → Sichern und wiederherstellen** kannst du Profile und Einstellungen einschließen und die Sicherung vorbereiten. Der ZIP-Download enthält die ausgewählten Originaldateien, ihre Namen, ursprünglichen Erstellungsdaten, Behalten-Auswahl, Scan-Metadaten und vorhandenen OCR-Text. Passwörter, Anmeldesitzungen, Auftragshistorie und offene Scan-Dokumente werden nicht exportiert. Sichere zuerst eine fertige mehrseitige PDF, wenn du sie mitnehmen möchtest.
+
+Vorbereitete Downloads bleiben eine Stunde auf dem Pi und lassen sich dort wieder entfernen. Das Entfernen betrifft nur das Archiv; seine Originaldokumente bleiben verfügbar. Lade die ZIP-Datei herunter und bewahre sie an deinem eigenen Speicherort auf. Höchstens drei Downloads werden gleichzeitig vorgehalten. Für das Erstellen wird zusätzlich freier Platz für das Archiv benötigt.
+
+Wähle zum Wiederherstellen die ZIP-Datei und prüfe die Zusammenfassung. Das Übernehmen von Profilen und Einstellungen ist eine eigene Auswahl: Profile werden hinzugefügt, die gespeicherten Speicher- und Aufbewahrungseinstellungen ersetzen die aktuellen Werte. Alle Archivteile, Prüfsummen und tatsächlichen Dokumentformate werden vor der gemeinsamen Übernahme geprüft. Ein beschädigtes Archiv oder ein Fehler hinterlässt keine teilweise übernommenen Dateien oder Einstellungen. Die Wiederherstellung startet keine Geräteaktion.
+
+Dokumente erhalten neue Kennungen, ihre bisherigen Namen und Erstellungsdaten bleiben erhalten. Vorhandene Dokumente werden nicht ersetzt. Temporäre Dateien erhalten ab der Wiederherstellung eine neue Aufbewahrungsfrist, **Behalten** bleibt erhalten. Vorschauen werden neu erzeugt. Eine ausdrücklich erneut gestartete Wiederherstellung erstellt weitere Kopien; ein verlorener Antwortaufruf wird dagegen unter derselben Auftragskennung wiederaufgenommen.
+
+Das entpackte Archiv und alle vorhandenen Dokumente müssen in das aktuelle Speicherlimit passen. Große Uploads können zusätzlich durch den Fernzugang begrenzt werden; verwende dann die lokale Adresse des Drucker-Pis. Hochladen und Wiederherstellen laufen ohne das Einlesen des gesamten Archivs in den Arbeitsspeicher.
+
+## Wartungshinweise
+
+Unter **Einstellungen → Wartung am Drucker** findest du modellbezogene Hinweise mit Links zu den betreffenden Seiten des [offiziellen Brother-Handbuchs](https://download.brother.com/welcome/doc002242/cv_dcp135_ukeng_usr.pdf#page=72). Geräteaktionen führst du am Drucker aus.
+
 ## Noch an das Gerät gebunden
 
 Ein bytegleicher Druckdatenvergleich bestätigt die verglichenen Druckdaten. Tatsächliche Scanneraufnahme, Gerätetasten, Kartenleser und Wartungsbefehle werden jeweils gesondert geprüft. Diese Bereiche erhalten erst nach passenden Nachweisen eine aktive Bedienung. Es werden keine Druck-, Scan- oder Reinigungsvorgänge beim Öffnen der Seite gestartet.

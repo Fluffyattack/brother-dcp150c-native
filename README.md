@@ -94,6 +94,8 @@ Multipage flatbed scanning has its own saved document: scan the next page, arran
 
 Quick preview captures the whole reported glass at the lowest supported resolution. Drag a region on that preview or enter its position and size in millimetres; the next scan uses those physical limits at your chosen resolution. Profiles and multipage documents keep the same region. Copying uses it only when explicitly enabled, and shows the region in its confirmation.
 
+Select documents in the library to prepare a ZIP backup, optionally including profiles and settings. Restoring checks all archive entries, hashes and document formats before adding new copies together. Original dates, retained-file choices, scan metadata and recognised text are preserved; temporary retention starts again at restore time. Existing documents remain available. Prepared downloads expire after one hour. Credentials and active scanning sessions are excluded. Settings also provide model-specific maintenance guidance with direct links to Brother's manual.
+
 Scanning requires a compatible native SANE backend and an explicit successful connection check. An [optional native scanner source build](docs/scanner-setup.md) preserves this model's older protocol and builds its decoder for ARM. The browser does not start discovery or scanning on page load. Copying starts printing only after a scan has succeeded. Scanner-button, memory-card and maintenance functions need separate device evidence before activation.
 
 See the [installation guide](packaging/README.md#control-center-documents-and-password) for private storage, access and removal. The automated workflow runs document/OCR and protected HTTP tests without submitting physical printer jobs.

@@ -143,3 +143,6 @@ button[aria-busy="true"] { opacity:.6; cursor:progress }
 #scan-area-shade { fill:#06111bcc; pointer-events:none }
 #scan-area-selection { fill:#1cdee71a; stroke:#13b9c3; stroke-width:2px; vector-effect:non-scaling-stroke; pointer-events:none }
 @media(max-width:360px) { .scan-area-fields { padding:12px } }
+/* The backup selection and restore form share the existing responsive grid. */
+.backup-tools { margin-bottom: 1.25rem; }
+.backup-tools input[type="file"] { width: 100%; max-width: 100%; }

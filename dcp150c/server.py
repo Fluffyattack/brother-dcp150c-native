@@ -11,6 +11,7 @@ import argparse
 import copy
 from http.cookies import SimpleCookie, CookieError
 import hmac
+import hashlib
 import json
 import logging
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -36,6 +37,7 @@ ASSETS = {
     "/assets/control-center.css": ("control-center.css", "text/css; charset=utf-8"),
     "/assets/scan-sessions.js": ("scan-sessions.js", "text/javascript; charset=utf-8"),
     "/assets/scan-area.js": ("scan-area.js", "text/javascript; charset=utf-8"),
+    "/assets/backups.js": ("backups.js", "text/javascript; charset=utf-8"),
     "/assets/styles.css": ("styles.css", "text/css; charset=utf-8"),
     "/favicon.svg": ("favicon.svg", "image/svg+xml"),
 }
@@ -276,6 +278,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             if path == "/api/documents" and self.command == "POST":
                 self._upload()
                 return
+            if path == "/api/backups/restore" and self.command == "POST":
+                self._restore_backup()
+                return
             parts = path.strip("/").split("/")
             if self.command == "DELETE":
                 if len(parts) == 3 and parts[:2] == ["api", "documents"]:
@@ -287,6 +292,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     center.storage.delete_profile(parts[2])
                 elif len(parts) == 3 and parts[:2] == ["api", "scan-sessions"]:
                     center.scan_sessions.delete(parts[2])
+                elif len(parts) == 3 and parts[:2] == ["api", "backups"]:
+                    center.backups.delete(parts[2])
                 else:
                     self._error("not_found", 404)
                     return
@@ -320,6 +327,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 result = {"settings": center.storage.update_settings(values)}
             elif path == "/api/settings/import":
                 result = center.import_settings(values)
+            elif path == "/api/backups":
+                result = {"job": center.create_backup(values, request_key)}
             elif len(parts) == 3 and parts[:2] == ["api", "documents"]:
                 result = {"document": center.storage.update(parts[2], values)}
             elif len(parts) == 4 and parts[:2] == ["api", "documents"] and parts[3] == "ocr":
@@ -337,8 +346,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             # Only stable identifiers go to the browser, never exception paths or tool output.
             if not isinstance(code, str) or not code.replace("_", "").isalnum() or len(code) > 80:
                 code = "invalid_request"
-            status = (429 if code == "login_rate_limited" else 401 if code == "login_failed" else 413 if code == "upload_too_large"
-                      else 409 if code in {"scan_session_busy", "scan_session_conflict", "request_conflict"} else 400)
+            status = (429 if code == "login_rate_limited" else 401 if code == "login_failed" else 413 if code in {"upload_too_large", "backup_too_large"}
+                      else 409 if code in {"scan_session_busy", "scan_session_conflict", "request_conflict", "backup_busy"} else 400)
             self._error(code, status)
         except (OSError, TypeError, KeyError):
             self._error("processing_failed", 500)
@@ -369,6 +378,31 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 raise ValueError("invalid_content_type")
             document = center.import_document(path, name)
         self._json(201, {"document": document})
+
+    def _restore_backup(self) -> None:
+        center = self.server.control_center
+        try:
+            length = self._length(center.backups.maximum_upload_bytes)
+        except ValueError as error:
+            if str(error) == "upload_too_large":
+                raise ValueError("backup_too_large") from None
+            raise
+        choice = self.headers.get("X-Restore-Settings", "false")
+        if choice not in {"true", "false"} or self.headers.get_content_type() not in {"application/zip", "application/octet-stream", "application/x-zip-compressed"}:
+            raise ValueError("invalid_backup")
+        with center.backups.receive(length) as (identifier, path):
+            remaining, digest = length, hashlib.sha256()
+            with path.open("xb") as output:
+                os.chmod(path, 0o600)
+                while remaining:
+                    chunk = self.rfile.read(min(65536, remaining))
+                    if not chunk:
+                        raise ValueError("incomplete_upload")
+                    output.write(chunk)
+                    digest.update(chunk)
+                    remaining -= len(chunk)
+            job = center.restore_backup(identifier, digest.hexdigest(), choice == "true", self.headers.get("Idempotency-Key"))
+        self._json(202, {"job": job})
 
     def _respond(self, head_only: bool) -> None:
         if len(self.path) > 2048:
@@ -411,6 +445,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     payload = json.dumps(center.export_settings(), ensure_ascii=False, indent=2).encode()
                     self._send(200, payload, "application/json; charset=utf-8", head_only,
                                disposition="attachment; filename=control-center-settings.json")
+                    return
+                if len(parts) == 4 and parts[:2] == ["api", "backups"] and parts[3] == "file":
+                    with center.backups.download(parts[2]) as archive:
+                        self._headers(200, os.fstat(archive.fileno()).st_size, "application/zip", disposition="attachment; filename=control-center-backup.zip")
+                        if not head_only:
+                            try:
+                                while chunk := archive.read(65536):
+                                    self.wfile.write(chunk)
+                            except (BrokenPipeError, ConnectionResetError, TimeoutError):
+                                pass
                     return
                 parts = url.path.strip("/").split("/")
                 if len(parts) == 4 and parts[:2] == ["api", "documents"] and parts[3] in {"preview", "file", "text"}:

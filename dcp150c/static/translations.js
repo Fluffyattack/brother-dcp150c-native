@@ -1038,3 +1038,91 @@ const scanAreaTranslations = {
 for (const [language, messages] of Object.entries(scanAreaTranslations)) {
   Object.assign(dashboardLanguages[language].messages, messages);
 }
+
+const backupTranslations = {
+  en: {
+    "backup.heading": "Back up and restore",
+    "backup.help": "Download a ZIP file containing the documents you select in Documents, their original dates and recognised text. You can include profiles and settings. Keep this file somewhere private.",
+    "backup.selected": "Back up selected documents",
+    "backup.selection": "Documents selected in the library: {count}",
+    "backup.include_settings": "Include profiles and settings",
+    "backup.create": "Prepare backup download",
+    "backup.choose_file": "Choose a backup ZIP file",
+    "backup.restore_settings": "Also restore the saved profiles and settings",
+    "backup.restore_help": "Restored files are added as new documents. Existing documents remain available. Temporary files receive a new retention period; files marked Keep stay retained.",
+    "backup.download_help": "Prepared downloads are available for one hour. Removing a prepared backup leaves its original documents available. Passwords, job history and active scanning documents are excluded.",
+    "backup.review": "Review restore", "backup.restore": "Restore backup",
+    "backup.prepared": "Backup ready", "backup.expires": "Download until {time}",
+    "backup.download": "Download ZIP backup", "backup.remove": "Remove prepared backup",
+    "backup.open_restored": "Open restored documents",
+    "backup.confirm_title": "Restore this backup?",
+    "backup.confirm_documents": "The complete archive will be checked before its documents are added. Existing documents remain available. This does not start the printer or scanner.",
+    "backup.confirm_with_settings": "The complete archive will be checked before its documents and profiles are added. Saved storage settings will replace your current settings. Existing documents remain available. This does not start the printer or scanner.",
+    "backup.uploading": "Uploading the backup. Keep this page open until the restore operation has been accepted.",
+    "jobs.kind.backup_export": "Preparing a backup", "jobs.kind.backup_restore": "Restoring a backup",
+    "error.invalid_backup": "This backup is incomplete, damaged or unsupported. Choose the original Control Center ZIP file.",
+    "error.backup_limit": "Three prepared backups are already available. Download and remove one before creating another.",
+    "error.backup_busy": "Another backup is uploading. Wait until that upload finishes.",
+    "error.backup_too_large": "This backup exceeds the storage or connection upload limit. Check the storage setting; for large files, use the Control Center through your local network."
+  },
+  de: {
+    "backup.heading": "Sichern und wiederherstellen",
+    "backup.help": "Lade eine ZIP-Datei mit den unter Dokumente ausgewählten Originaldateien, ihren ursprünglichen Daten und erkanntem Text herunter. Profile und Einstellungen kannst du einschließen. Bewahre diese Datei an einem privaten Ort auf.",
+    "backup.selected": "Ausgewählte Dokumente sichern",
+    "backup.selection": "In der Ablage ausgewählte Dokumente: {count}",
+    "backup.include_settings": "Profile und Einstellungen einschließen",
+    "backup.create": "Sicherung zum Herunterladen vorbereiten",
+    "backup.choose_file": "ZIP-Datei einer Sicherung auswählen",
+    "backup.restore_settings": "Auch gespeicherte Profile und Einstellungen wiederherstellen",
+    "backup.restore_help": "Die Dateien werden als neue Dokumente hinzugefügt. Vorhandene Dokumente bleiben verfügbar. Temporäre Dateien erhalten eine neue Aufbewahrungsfrist; dauerhaft behaltene Dateien bleiben dauerhaft gespeichert.",
+    "backup.download_help": "Vorbereitete Downloads sind eine Stunde verfügbar. Das Entfernen einer vorbereiteten Sicherung lässt ihre Originaldokumente bestehen. Passwörter, Auftragshistorie und laufende Scandokumente sind ausgeschlossen.",
+    "backup.review": "Wiederherstellung prüfen", "backup.restore": "Sicherung wiederherstellen",
+    "backup.prepared": "Sicherung bereit", "backup.expires": "Herunterladen bis {time}",
+    "backup.download": "ZIP-Sicherung herunterladen", "backup.remove": "Vorbereitete Sicherung entfernen",
+    "backup.open_restored": "Wiederhergestellte Dokumente öffnen",
+    "backup.confirm_title": "Diese Sicherung wiederherstellen?",
+    "backup.confirm_documents": "Das gesamte Archiv wird geprüft, bevor seine Dokumente hinzugefügt werden. Vorhandene Dokumente bleiben verfügbar. Drucker und Scanner werden dabei nicht gestartet.",
+    "backup.confirm_with_settings": "Das gesamte Archiv wird geprüft, bevor seine Dokumente und Profile hinzugefügt werden. Gespeicherte Speichereinstellungen ersetzen deine aktuellen Einstellungen. Vorhandene Dokumente bleiben verfügbar. Drucker und Scanner werden dabei nicht gestartet.",
+    "backup.uploading": "Sicherung wird hochgeladen. Lass diese Seite geöffnet, bis der Auftrag zur Wiederherstellung angenommen wurde.",
+    "jobs.kind.backup_export": "Sicherung vorbereiten", "jobs.kind.backup_restore": "Sicherung wiederherstellen",
+    "error.invalid_backup": "Diese Sicherung ist unvollständig, beschädigt oder nicht unterstützt. Wähle die ursprüngliche ZIP-Datei des Control Centers.",
+    "error.backup_limit": "Es sind bereits drei Sicherungen vorbereitet. Lade eine herunter und entferne sie, bevor du eine weitere erstellst.",
+    "error.backup_busy": "Eine andere Sicherung wird gerade hochgeladen. Warte, bis dieser Upload abgeschlossen ist.",
+    "error.backup_too_large": "Diese Sicherung überschreitet die Speicher- oder Uploadgrenze der Verbindung. Prüfe das Speicherlimit; nutze für große Dateien das Control Center über dein lokales Netzwerk."
+  }
+};
+for (const [language, messages] of Object.entries(backupTranslations)) {
+  Object.assign(dashboardLanguages[language].messages, messages);
+}
+
+const maintenanceTranslations = {
+  en: {
+    "maintenance.heading": "Maintenance at the printer",
+    "maintenance.help": "These instructions open the model's official manual. Device actions are performed at the printer; this panel sends no maintenance commands.",
+    "maintenance.quality": "Check print quality",
+    "maintenance.quality_help": "At the printer: Ink Management → Test Print → Print Quality. Confirm the choices with OK, then press Colour Start for the check sheet.",
+    "maintenance.alignment": "Check alignment",
+    "maintenance.alignment_help": "Use Ink Management → Test Print → Alignment and follow the check sheet and display.",
+    "maintenance.glass": "Clean the scanner glass",
+    "maintenance.glass_help": "Use a soft, lint-free cloth dampened with non-flammable glass cleaner for the glass and white cover.",
+    "maintenance.head": "Print head care",
+    "maintenance.head_help": "Cleaning consumes ink. Follow the manual when needed; never touch the print head.",
+    "maintenance.manual": "Open Brother's manual"
+  },
+  de: {
+    "maintenance.heading": "Wartung am Drucker",
+    "maintenance.help": "Die Hinweise führen zum offiziellen Handbuch dieses Modells. Geräteaktionen bedienst du am Drucker; dieser Bereich sendet keine Wartungsbefehle.",
+    "maintenance.quality": "Druckqualität prüfen",
+    "maintenance.quality_help": "Am Drucker: Tintenmanagement → Testdruck → Druckqualität. Bestätige mit OK und drücke für das Prüfblatt Start Farbe.",
+    "maintenance.alignment": "Ausrichtung prüfen",
+    "maintenance.alignment_help": "Wähle Tintenmanagement → Testdruck → Ausrichtung und folge Prüfblatt und Display.",
+    "maintenance.glass": "Vorlagenglas reinigen",
+    "maintenance.glass_help": "Reinige Glas und weiße Abdeckung mit einem weichen, fusselfreien Tuch, angefeuchtet mit nicht brennbarem Glasreiniger.",
+    "maintenance.head": "Druckkopfpflege",
+    "maintenance.head_help": "Reinigung verbraucht Tinte. Folge bei Bedarf dem Handbuch; berühre den Druckkopf nicht.",
+    "maintenance.manual": "Brother-Handbuch öffnen"
+  }
+};
+for (const [language, messages] of Object.entries(maintenanceTranslations)) {
+  Object.assign(dashboardLanguages[language].messages, messages);
+}

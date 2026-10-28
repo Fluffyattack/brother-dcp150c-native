@@ -115,7 +115,7 @@ async function main() {
   assert.ok(!saved.includes("never-store-document-contents"));
   console.log("PASS: passwords and raw upload data never enter pending-request storage");
 
-  for (const [route, responseField, label] of [["/api/scan-sessions", "scan_session", "new-document"], ["/api/scan-sessions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pages", "job", "next-page"], ["/api/scanner/preview", "job", "scanner-preview"]]) {
+  for (const [route, responseField, label] of [["/api/scan-sessions", "scan_session", "new-document"], ["/api/scan-sessions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pages", "job", "next-page"], ["/api/scanner/preview", "job", "scanner-preview"], ["/api/backups", "job", "backup-export"], ["/api/backups/restore", "job", "backup-restore"]]) {
     const workflowStorage = new Map(), accepted = new Map(), workflowKeys = [];
     let loseResponse = true;
     const workflowFetch = async (path, options) => {
@@ -133,8 +133,11 @@ async function main() {
       return new Response(JSON.stringify(result));
     };
     let workflowBrowser = createBrowser(workflowStorage, workflowFetch);
-    const expression = `controlRequest(${JSON.stringify(route)}, { method: "POST", body: { revision: 0 }, timeout: 10 })`;
+    const expression = route === "/api/backups/restore"
+      ? 'controlRequest("/api/backups/restore", { method: "POST", body: new Blob(["private ZIP data"]), uploadIdentity: { size: 16, last_modified: 123, fingerprint: "opaque-file-fingerprint", restore_settings: false }, timeout: 10 })'
+      : `controlRequest(${JSON.stringify(route)}, { method: "POST", body: { revision: 0 }, timeout: 10 })`;
     await assert.rejects(workflowBrowser(expression), (error) => error.code === "request_timeout");
+    assert.ok(!JSON.stringify([...workflowStorage.values()]).includes("private ZIP data"));
     workflowBrowser = createBrowser(workflowStorage, workflowFetch);
     await workflowBrowser(expression);
     assert.equal(accepted.size, 1);

@@ -72,7 +72,7 @@ function savePendingControlRequests() {
 
 function needsDurableRequestKey(method, path, body) {
   if (method !== "POST" || body instanceof Blob) return false;
-  return ["/api/print", "/api/copy", "/api/scan", "/api/scanner/detect", "/api/scanner/preview", "/api/documents/merge"].includes(path)
+  return ["/api/print", "/api/copy", "/api/scan", "/api/scanner/detect", "/api/scanner/preview", "/api/documents/merge", "/api/backups"].includes(path)
     || /^\/api\/documents\/[a-zA-Z0-9_-]+\/(?:ocr|transform)$/.test(path)
     || path === "/api/scan-sessions" || /^\/api\/scan-sessions\/[a-f0-9]{32}\/(?:pages|finish)$/.test(path);
 }
@@ -85,7 +85,9 @@ async function controlRequest(path, options = {}) {
   let body = options.body;
   // These identities contain only job settings and opaque document identifiers.
   // Passwords and raw upload data are excluded by the explicit job-route list.
-  const requestIdentity = needsDurableRequestKey(method, path, body)
+  const requestIdentity = method === "POST" && path === "/api/backups/restore" && body instanceof Blob && options.uploadIdentity
+    ? JSON.stringify([method, path, canonicalRequestValue(options.uploadIdentity)])
+    : needsDurableRequestKey(method, path, body)
     ? JSON.stringify([method, path, canonicalRequestValue(body || {})]) : null;
   if (requestIdentity) {
     if (!pendingControlRequests.has(requestIdentity)) {
@@ -134,7 +136,7 @@ async function controlRequest(path, options = {}) {
         renderControlAccess();
       }
       const failure = new Error("Control Center request failed");
-      failure.code = result.code || result.message_code || (typeof result.error === "string" ? result.error : result.error?.code) || result.error_code || (response.status === 401 ? "authentication_required" : "request_failed");
+      failure.code = result.code || result.message_code || (typeof result.error === "string" ? result.error : result.error?.code) || result.error_code || (response.status === 401 ? "authentication_required" : response.status === 413 ? (path === "/api/backups/restore" ? "backup_too_large" : "upload_too_large") : "request_failed");
       throw failure;
     }
     if (requestIdentity && (typeof result.job?.id === "string" || typeof result.scan_session?.id === "string")) {
@@ -227,6 +229,7 @@ function clearPrivateViews() {
   confirmationAction = null;
   if (typeof clearScanSessionViews === "function") clearScanSessionViews();
   if (typeof clearScanAreaViews === "function") clearScanAreaViews();
+  if (typeof clearBackupViews === "function") clearBackupViews();
   showControlView("overview");
 }
 
@@ -349,6 +352,7 @@ function renderDocumentSelection() {
     strip.append(item);
   });
   findElementById("merge-documents").disabled = documentSelection.length < 2;
+  if (typeof renderBackupSelection === "function") renderBackupSelection();
 }
 
 function renderDocuments() {
@@ -565,6 +569,11 @@ function renderControlJobs() {
     actions.append(makeElement("span", "control-job-state", controlText(dashboardLanguages.en.messages[stateIdentifier] ? stateIdentifier : "jobs.state.unknown")));
     const resultIdentifier = job.result_document_id || job.result?.document_id;
     if (resultIdentifier) actions.append(makeButton(controlText("jobs.open_result"), "text-button", () => selectDocument(resultIdentifier)));
+    if (job.result?.restored_document_ids?.length) actions.append(makeButton(controlText("backup.open_restored"), "text-button", () => {
+      documentSelection = job.result.restored_document_ids.slice();
+      showControlView("documents", true);
+      renderDocuments();
+    }));
     if (!terminalJobStates.includes(job.state) || (["submitted", "interrupted", "failed"].includes(job.state) && job.cups_job_id)) actions.append(makeButton(controlText("jobs.cancel"), "secondary-button", (event) => performControlAction(event.currentTarget, async () => {
       await controlRequest(`/api/jobs/${encodeURIComponent(job.id)}/cancel`, { method: "POST", body: {} });
       await refreshControlCenter();
@@ -651,6 +660,7 @@ function renderControlCenter() {
   }
   if (typeof renderScanArea === "function") renderScanArea();
   if (typeof renderScanSessions === "function") renderScanSessions();
+  if (typeof renderBackups === "function" && changed("backups", controlState.backups)) renderBackups();
   const latestScanJob = controlState.jobs.find((job) => ["scan", "copy", "scan_page", "scan_preview"].includes(job.kind) && job.result_document_id);
   const latestScan = latestScanJob ? controlState.documents.find((record) => record.id === latestScanJob.result_document_id) : null;
   const latestContainer = findElementById("scan-latest");

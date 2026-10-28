@@ -74,6 +74,9 @@ class DocumentStorage:
                 CREATE TABLE IF NOT EXISTS scan_document_metadata (
                     document_id TEXT PRIMARY KEY, metadata TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS document_restore_metadata (
+                    document_id TEXT PRIMARY KEY, restored_at REAL NOT NULL
+                );
             """)
         self._leases: dict[str, int] = {}
         self._closed = False
@@ -104,7 +107,7 @@ class DocumentStorage:
             for key, value in values.items():
                 self.connection.execute("INSERT OR REPLACE INTO settings VALUES (?,?)", (key, json.dumps(value)))
             if "retention_hours" in values:
-                self.connection.execute("UPDATE documents SET expires_at=created_at+? WHERE keep=0", (values["retention_hours"] * 3600,))
+                self.connection.execute("UPDATE documents SET expires_at=MAX(created_at,COALESCE((SELECT restored_at FROM document_restore_metadata WHERE document_id=documents.id),created_at))+? WHERE keep=0", (values["retention_hours"] * 3600,))
                 if self.connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='scan_sessions'").fetchone():
                     self.connection.execute("UPDATE scan_sessions SET expires_at=updated_at+?", (values["retention_hours"] * 3600,))
         return self.settings()
@@ -216,6 +219,69 @@ class DocumentStorage:
                 name, int(keep), time.time() + self.settings()["retention_hours"] * 3600, identifier))
         return self.get(identifier)
 
+    def restore_batch(self, documents: list[dict], preferences: dict | None, cancel_event) -> list[dict]:
+        """Commit already validated backup files and preferences together.
+
+        Every document receives a new identity. Temporary retention starts at
+        restoration; its original creation date is preserved for the library.
+        Staged files share this filesystem and are moved without a second copy.
+        """
+        destinations = []
+        identifiers = []
+        now = time.time()
+        with self.guard:
+            if len(documents) + self.connection.execute("SELECT count(*) FROM documents").fetchone()[0] > 500:
+                raise StorageError("storage_full", "The restored documents exceed the library limit.")
+            if preferences and len(preferences["profiles"]) + len(self.profiles()) > 50:
+                raise StorageError("profile_limit", "The restored profiles exceed the profile limit.")
+            additional_bytes = sum(item["source"].stat().st_size + (item["text"].stat().st_size if item["text"] else 0)
+                                   + item["preview"].stat().st_size for item in documents)
+            self.check_space(additional_bytes)
+            settings = {**self.settings(), **(preferences["settings"] if preferences else {})}
+            existing_bytes = sum(path.stat().st_size for path in self.documents_directory.rglob("*") if path.is_file())
+            if existing_bytes + additional_bytes > settings["max_storage_mb"] * 1024 * 1024:
+                raise StorageError("storage_full", "The restored settings leave insufficient document storage.")
+            try:
+                with self.connection:
+                    if preferences:
+                        for key, value in preferences["settings"].items():
+                            self.connection.execute("INSERT OR REPLACE INTO settings VALUES (?,?)", (key, json.dumps(value)))
+                        self.connection.execute("UPDATE documents SET expires_at=MAX(created_at,COALESCE((SELECT restored_at FROM document_restore_metadata WHERE document_id=documents.id),created_at))+? WHERE keep=0", (settings["retention_hours"] * 3600,))
+                        if self.connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='scan_sessions'").fetchone():
+                            self.connection.execute("UPDATE scan_sessions SET expires_at=updated_at+?", (settings["retention_hours"] * 3600,))
+                        for profile in preferences["profiles"]:
+                            self.connection.execute("INSERT INTO profiles VALUES (?,?,?,?)", (uuid.uuid4().hex, profile["name"], profile["kind"], json.dumps(profile["settings"])))
+                    for item in documents:
+                        if cancel_event.is_set():
+                            raise StorageError("job_cancelled", "The restore operation was cancelled.")
+                        identifier = uuid.uuid4().hex
+                        extension = {"application/pdf": ".pdf", "image/png": ".png", "image/jpeg": ".jpg"}[item["metadata"]["media_type"]]
+                        destination = self.documents_directory / identifier
+                        destination.mkdir(mode=0o700)
+                        destinations.append(destination)
+                        filename = "document" + extension
+                        item["source"].replace(destination / filename)
+                        os.chmod(destination / filename, 0o600)
+                        if item["text"]:
+                            item["text"].replace(destination / "text.txt")
+                            os.chmod(destination / "text.txt", 0o600)
+                        item["preview"].replace(destination / "preview.png")
+                        os.chmod(destination / "preview.png", 0o600)
+                        self.connection.execute("INSERT INTO documents VALUES (?,?,?,?,?,?,?,?,?,?)", (
+                            identifier, document_name(item["name"]), filename, item["metadata"]["media_type"],
+                            item["metadata"]["page_count"], (destination / filename).stat().st_size,
+                            item["created_at"], int(item["keep"]), now + settings["retention_hours"] * 3600,
+                            "text.txt" if item["text"] else None))
+                        self.connection.execute("INSERT INTO document_restore_metadata VALUES (?,?)", (identifier, now))
+                        if item["scan"] is not None:
+                            self.connection.execute("INSERT INTO scan_document_metadata VALUES (?,?)", (identifier, json.dumps(item["scan"], allow_nan=False)))
+                        identifiers.append(identifier)
+            except BaseException:
+                for destination in destinations:
+                    shutil.rmtree(destination, ignore_errors=True)
+                raise
+            return [self.get(identifier) for identifier in identifiers]
+
     def delete(self, identifier: str) -> None:
         with self.guard:
             self._row(identifier)
@@ -227,6 +293,7 @@ class DocumentStorage:
             # by prune; a missing directory can never leave an undeletable row.
             with self.connection:
                 self.connection.execute("DELETE FROM scan_document_metadata WHERE document_id=?", (identifier,))
+                self.connection.execute("DELETE FROM document_restore_metadata WHERE document_id=?", (identifier,))
                 self.connection.execute("DELETE FROM documents WHERE id=?", (identifier,))
             try:
                 shutil.rmtree(self.documents_directory / identifier)
@@ -242,6 +309,7 @@ class DocumentStorage:
             known = {row["id"] for row in self.connection.execute("SELECT id FROM documents")}
             with self.connection:
                 self.connection.execute("DELETE FROM scan_document_metadata WHERE document_id NOT IN (SELECT id FROM documents)")
+                self.connection.execute("DELETE FROM document_restore_metadata WHERE document_id NOT IN (SELECT id FROM documents)")
             for directory in self.documents_directory.iterdir():
                 if IDENTIFIER.fullmatch(directory.name) and directory.name not in known and directory.is_dir() and not directory.is_symlink():
                     try:

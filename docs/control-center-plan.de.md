@@ -26,6 +26,8 @@ Für unser Projekt dienen die Funktionen als Vorbild. Die Bedienung und Gestaltu
 | Texterkennung | Lokale neuronale Tesseract-Erkennung; mehrseitige durchsuchbare PDFs und Textdateien mit echten Softwaretests geprüft |
 | Mehrseitiges Scannen | Gespeicherter Ablauf mit weiterer Seite, Seitenfolge, Drehung, Zuschnitt, Browser-Wiederaufnahme und PDF-Abschluss; gegen den isolierten virtuellen Scanner geprüft |
 | Vorschau und Scanbereich | Gesamtes gemeldetes Glas als Vorschau, Auswahl per Ziehen oder Millimetereingabe, Übernahme in Profile und mehrseitige Dokumente; ausdrücklich wählbar beim Kopieren |
+| Sicherung und Wiederherstellung | Ausgewählte Originaldateien mit Metadaten und OCR-Text, wahlweise Profile und Einstellungen; vollständige Archivprüfung vor gemeinsamer Übernahme als neue Dokumente |
+| Wartungshinweise | Unter Einstellungen mit direkten Verweisen auf die betreffenden Seiten des offiziellen Modellhandbuchs; Gerätebefehle weiterhin erst nach gesonderter Prüfung |
 
 Die aktuellen Druckergebnisse und ihre Einstellungen stehen im [Hardwaretest](../README.md#hardware-validation). Der bytegleiche Vergleich bestätigt die verglichenen Druckdaten. Einschalten, USB-Wiederverbindung und echte Scannerbewegungen sind gesonderte Gerätetests.
 
@@ -132,6 +134,8 @@ Vor dem Aktivieren von Uploads, Scans oder Druckaktionen erhält die Steuerzentr
 Für unterwegs können die angemeldeten Funktionen über einen HTTPS-Zugang verwendet werden. Die Anwendung schützt Dokumente und Aktionen zusätzlich mit ihrer eigenen Anmeldung. Der bestehende temporäre Cloudflare-Link kann sich bei einem Neustart des Tunnels ändern. Eine feste Adresse bleibt eine zusätzliche Betriebsmöglichkeit.
 
 Sicherung und Wiederherstellung umfassen Einstellungen, Profile und bei ausdrücklicher Auswahl gespeicherte Dokumente. Zugangsgeheimnisse bleiben außerhalb des öffentlichen Projekts.
+
+Dieser Ablauf ist implementiert: Originaldateien werden unverändert gesichert und bei der Wiederherstellung mit neuen Kennungen hinzugefügt. Fehlgeschlagene oder abgebrochene Wiederherstellungen übernehmen keine Teilmenge. Die dokumentierte Aufbewahrungsfrist beginnt für wiederhergestellte temporäre Dateien neu; ursprüngliches Erstellungsdatum und Behalten-Auswahl bleiben erhalten.
 
 ## Umsetzung in überprüfbaren Etappen
 
