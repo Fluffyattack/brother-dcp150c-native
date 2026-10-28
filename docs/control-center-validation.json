@@ -35,7 +35,7 @@
   "existing_print_installation_checks": 14,
   "preview_and_scan_area": {
     "software_checks": 6,
-    "geometry_checks": 5,
+    "geometry_checks": 6,
     "real_browser_checks": 9,
     "backend_used_for_acquisition": "isolated SANE test backend",
     "hardware_verified": false,

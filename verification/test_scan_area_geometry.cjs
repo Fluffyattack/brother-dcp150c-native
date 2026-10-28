@@ -14,6 +14,8 @@ assert.deepEqual(plain("scanAreaFromSelection(frame,selection)"), {left:60,top:1
 console.log("PASS: a drawn selection becomes the physical scanner coordinates, including a nonzero frame origin");
 assert.deepEqual(plain("scanSelectionFromArea(frame,scanAreaFromSelection(frame,selection))"), {left:0.25,top:0.5,width:0.5,height:0.25});
 console.log("PASS: scanner coordinates restore the same image selection without depending on preview DPI");
+assert.deepEqual(plain('scanAreaWithDefaults({width:40,height:60},{width:215.9,height:297})'),{left:0,top:0,width:40,height:60});
+console.log("PASS: older width-and-height profiles retain the scanner's zero-origin defaults");
 assert.equal(evaluate('scanAreaWithinGlass({left:10,top:20,width:100,height:75},{width:210,height:297})'),true);
 for(const area of [{left:-1,top:0,width:10,height:10},{left:0,top:0,width:0.2,height:10},{left:200,top:0,width:20,height:10},{left:0,top:0,width:20,height:400}]){
  assert.equal(evaluate(`scanAreaWithinGlass(${JSON.stringify(area)},{width:210,height:297})`),false);

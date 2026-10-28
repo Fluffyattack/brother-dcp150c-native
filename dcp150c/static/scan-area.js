@@ -27,6 +27,13 @@ function scanAreaWithinGlass(area, glass) {
     && area.left + area.width <= glass.width + 0.01 && area.top + area.height <= glass.height + 0.01);
 }
 
+function scanAreaWithDefaults(area, glass) {
+  if (!area && !glass) return null;
+  const defaults = { left: 0, top: 0, width: glass ? Math.min(210, glass.width) : NaN,
+    height: glass ? Math.min(297, glass.height) : NaN };
+  return Object.fromEntries(scanAreaFields.map((key) => [key, Number(area?.[key] ?? defaults[key])]));
+}
+
 function currentScanGlass() {
   const area = controlState?.capabilities?.scanner?.area;
   if (area?.width > 0 && area?.height > 0) return area;
@@ -59,8 +66,7 @@ function settingsWithScanArea(form, settings) {
 
 function applyScanAreaSettings(area) {
   const glass = currentScanGlass();
-  selectedPhysicalScanArea = area ? Object.fromEntries(scanAreaFields.map((key) => [key, Number(area[key])]))
-    : glass ? { left: 0, top: 0, width: Math.min(210, glass.width), height: Math.min(297, glass.height) } : null;
+  selectedPhysicalScanArea = scanAreaWithDefaults(area, glass);
   scanAreaRenderSignature = "";
   updateScanAreaFields();
   renderScanArea();
