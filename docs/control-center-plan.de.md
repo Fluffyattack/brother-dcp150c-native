@@ -24,6 +24,7 @@ Für unser Projekt dienen die Funktionen als Vorbild. Die Bedienung und Gestaltu
 | Scanner auf dem Drucker-Pi | Natives Backend für das ältere Modellprotokoll gebaut und installiert; Decoder auf drei Builds verglichen; erste echte Aufnahme noch offen |
 | Webaktionen und Dokumentablage | Geschützte Uploads, Vorschau, Bearbeitung, Zusammenführen, Drucken, Aufbewahrung und Profile implementiert |
 | Texterkennung | Lokale neuronale Tesseract-Erkennung; mehrseitige durchsuchbare PDFs und Textdateien mit echten Softwaretests geprüft |
+| Mehrseitiges Scannen | Gespeicherter Ablauf mit weiterer Seite, Seitenfolge, Drehung, Zuschnitt, Browser-Wiederaufnahme und PDF-Abschluss; gegen den isolierten virtuellen Scanner geprüft |
 
 Die aktuellen Druckergebnisse und ihre Einstellungen stehen im [Hardwaretest](../README.md#hardware-validation). Der bytegleiche Vergleich bestätigt die verglichenen Druckdaten. Einschalten, USB-Wiederverbindung und echte Scannerbewegungen sind gesonderte Gerätetests.
 

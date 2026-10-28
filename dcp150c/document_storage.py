@@ -102,6 +102,8 @@ class DocumentStorage:
                 self.connection.execute("INSERT OR REPLACE INTO settings VALUES (?,?)", (key, json.dumps(value)))
             if "retention_hours" in values:
                 self.connection.execute("UPDATE documents SET expires_at=created_at+? WHERE keep=0", (values["retention_hours"] * 3600,))
+                if self.connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='scan_sessions'").fetchone():
+                    self.connection.execute("UPDATE scan_sessions SET expires_at=updated_at+?", (values["retention_hours"] * 3600,))
         return self.settings()
 
     def check_space(self, additional_bytes: int) -> None:
@@ -209,6 +211,8 @@ class DocumentStorage:
     def delete(self, identifier: str) -> None:
         with self.guard:
             self._row(identifier)
+            if identifier in self._scan_session_references():
+                raise StorageError("document_in_scan_session", "Remove this page from its scanning document before deleting the original.")
             if self._in_use(identifier):
                 raise StorageError("document_in_use", "Wait for the document's current operation to finish.")
             # Commit metadata first. After a crash, unreferenced files are cleaned
@@ -238,6 +242,8 @@ class DocumentStorage:
         """Protect queued inputs too, before the single worker acquires a lease."""
         if self._leases.get(identifier):
             return True
+        if identifier in self._scan_session_references():
+            return True
         if not self.connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='jobs'").fetchone():
             return False
         for row in self.connection.execute("SELECT parameters FROM jobs WHERE state IN ('queued','running')"):
@@ -245,6 +251,12 @@ class DocumentStorage:
             if parameters.get("document_id") == identifier or identifier in parameters.get("document_ids", []):
                 return True
         return False
+
+    def _scan_session_references(self) -> set[str]:
+        if not self.connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='scan_sessions'").fetchone():
+            return set()
+        rows = self.connection.execute("SELECT pages FROM scan_sessions WHERE expires_at>? OR active_job_id IS NOT NULL", (time.time(),))
+        return {page["document_id"] for row in rows for page in json.loads(row["pages"])}
 
     def profiles(self) -> list[dict]:
         with self.guard:

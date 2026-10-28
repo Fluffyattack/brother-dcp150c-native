@@ -55,6 +55,7 @@ jobs:
           node --check dcp150c/static/translations.js
           node --check dcp150c/static/app.js
           node --check dcp150c/static/control-center.js
+          node --check dcp150c/static/scan-sessions.js
       - name: Verify document workflows and protected browser actions offline
         run: |
           python3 -m unittest discover -s verification -p 'test_*.py' -v

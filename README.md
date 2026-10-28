@@ -90,6 +90,8 @@ sudo systemctl restart dcp150c-dashboard
 
 Uploads accept PDF, PNG and JPEG, up to 20 MiB and 25 pages. Documents can be reordered, rotated, cropped, merged, downloaded and explicitly printed. Temporary documents expire after 24 hours by default; choose Keep to retain one. OCR runs locally, one page at a time, using Tesseract's LSTM neural engine and installed language models. Results include a searchable PDF and a UTF-8 text file. Recognition quality depends on the original; review important text.
 
+Multipage flatbed scanning has its own saved document: scan the next page, arrange and edit pages, then finish one PDF, optionally with OCR. Closing the browser preserves the page list and settings. Original page images remain separate; their saved scanning document protects them until it is removed or expires. Expired or interrupted operations are never replayed automatically.
+
 Scanning requires a compatible native SANE backend and an explicit successful connection check. An [optional native scanner source build](docs/scanner-setup.md) preserves this model's older protocol and builds its decoder for ARM. The browser does not start discovery or scanning on page load. Copying starts printing only after a scan has succeeded. Scanner-button, memory-card and maintenance functions need separate device evidence before activation.
 
 See the [installation guide](packaging/README.md#control-center-documents-and-password) for private storage, access and removal. The automated workflow runs document/OCR and protected HTTP tests without submitting physical printer jobs.

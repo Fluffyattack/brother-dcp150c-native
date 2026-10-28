@@ -73,7 +73,8 @@ function savePendingControlRequests() {
 function needsDurableRequestKey(method, path, body) {
   if (method !== "POST" || body instanceof Blob) return false;
   return ["/api/print", "/api/copy", "/api/scan", "/api/scanner/detect", "/api/documents/merge"].includes(path)
-    || /^\/api\/documents\/[a-zA-Z0-9_-]+\/(?:ocr|transform)$/.test(path);
+    || /^\/api\/documents\/[a-zA-Z0-9_-]+\/(?:ocr|transform)$/.test(path)
+    || path === "/api/scan-sessions" || /^\/api\/scan-sessions\/[a-f0-9]{32}\/(?:pages|finish)$/.test(path);
 }
 
 async function controlRequest(path, options = {}) {
@@ -136,7 +137,7 @@ async function controlRequest(path, options = {}) {
       failure.code = result.code || result.message_code || (typeof result.error === "string" ? result.error : result.error?.code) || result.error_code || (response.status === 401 ? "authentication_required" : "request_failed");
       throw failure;
     }
-    if (requestIdentity && typeof result.job?.id === "string") {
+    if (requestIdentity && (typeof result.job?.id === "string" || typeof result.scan_session?.id === "string")) {
       pendingControlRequests.delete(requestIdentity);
       savePendingControlRequests();
     }
@@ -174,6 +175,7 @@ async function performControlAction(button, action) {
       button.removeAttribute("aria-busy");
     }
     updateScannerControls();
+    if (typeof renderScanSessions === "function") renderScanSessions(true);
   }
 }
 
@@ -223,6 +225,7 @@ function clearPrivateViews() {
   findElementById("control-jobs").hidden = true;
   if (findElementById("action-confirmation").open) findElementById("action-confirmation").close();
   confirmationAction = null;
+  if (typeof clearScanSessionViews === "function") clearScanSessionViews();
   showControlView("overview");
 }
 
@@ -542,7 +545,7 @@ function renderControlJobs() {
     actions.append(makeElement("span", "control-job-state", controlText(dashboardLanguages.en.messages[stateIdentifier] ? stateIdentifier : "jobs.state.unknown")));
     const resultIdentifier = job.result_document_id || job.result?.document_id;
     if (resultIdentifier) actions.append(makeButton(controlText("jobs.open_result"), "text-button", () => selectDocument(resultIdentifier)));
-    if (!terminalJobStates.includes(job.state) || (job.state === "submitted" && job.cups_job_id)) actions.append(makeButton(controlText("jobs.cancel"), "secondary-button", (event) => performControlAction(event.currentTarget, async () => {
+    if (!terminalJobStates.includes(job.state) || (["submitted", "interrupted", "failed"].includes(job.state) && job.cups_job_id)) actions.append(makeButton(controlText("jobs.cancel"), "secondary-button", (event) => performControlAction(event.currentTarget, async () => {
       await controlRequest(`/api/jobs/${encodeURIComponent(job.id)}/cancel`, { method: "POST", body: {} });
       await refreshControlCenter();
     })));
@@ -626,7 +629,8 @@ function renderControlCenter() {
     updateSupportedPrintOptions();
     updateOCRLanguageOptions();
   }
-  const latestScanJob = controlState.jobs.find((job) => (job.kind === "scan" || job.kind === "copy") && job.result_document_id);
+  if (typeof renderScanSessions === "function") renderScanSessions();
+  const latestScanJob = controlState.jobs.find((job) => ["scan", "copy", "scan_page"].includes(job.kind) && job.result_document_id);
   const latestScan = latestScanJob ? controlState.documents.find((record) => record.id === latestScanJob.result_document_id) : null;
   const latestContainer = findElementById("scan-latest");
   if (latestScan && latestContainer.dataset.record !== latestScan.id) {

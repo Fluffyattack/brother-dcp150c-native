@@ -2,7 +2,7 @@
   "date": "2026-10-28",
   "scope": "Offline Control Center, document, OCR and native scanner software verification",
   "python_workflows": {
-    "tests": 33,
+    "tests": 46,
     "hardware_submissions": false,
     "includes": [
       "Authenticated HTTP requests and protected downloads",
@@ -11,11 +11,14 @@
       "Page selection, rotation, crop, merge and image output",
       "Durable request identifiers, queued input retention and restart recovery",
       "Held print preparation with a recording transport",
-      "Isolated SANE virtual scanner acquisition and shared locking"
+      "Isolated SANE virtual scanner acquisition and shared locking",
+      "Durable next-page sessions, original retention and revision conflict handling",
+      "Actual ordered multipage PDF output and optional OCR",
+      "Queued and running cancellation without repeating scanner work"
     ]
   },
   "browser_request_recovery": {
-    "tests": 9,
+    "tests": 12,
     "includes": [
       "Lost response and page reload reuse the accepted operation",
       "Explicit new operation after a known response gets a new identifier",
@@ -24,10 +27,19 @@
       "Passwords and raw uploads never enter pending request storage",
       "Expired sessions obtain a new request verification token",
       "Login refreshes stale anonymous sessions",
-      "Feedback and paper choices update with the selected language"
+      "Feedback and paper choices update with the selected language",
+      "Lost new-document and next-page responses reuse their workflow identifiers",
+      "Saved scanner settings restore after delayed discovery without overwriting subsequent choices"
     ]
   },
   "existing_print_installation_checks": 14,
+  "multipage_scanning": {
+    "software_checks": 13,
+    "real_browser_checks": 9,
+    "backend_used_for_acquisition": "isolated SANE test backend",
+    "hardware_verified": false,
+    "includes": ["First and next page", "Browser reload and setting restoration", "Reordering", "Rotation and crop", "Original-file preservation", "Two-page PDF download", "Optional real OCR", "25-page bound", "Parallel-window and repeated-request protection", "Interrupted restart recovery"]
+  },
   "real_browser_workflows": {
     "passed": 14,
     "javascript_errors": 0,

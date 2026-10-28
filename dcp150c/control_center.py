@@ -14,6 +14,7 @@ from .access_control import AccessControl
 from .document_storage import DocumentStorage, StorageError, document_name
 from .job_manager import JobManager
 from .scanner_service import ScannerService
+from .scan_sessions import ScanSessions
 
 
 class ControlCenter:
@@ -52,6 +53,9 @@ class ControlCenter:
                 ("Copy", "copy", {"resolution": 300, "mode": "color", "copies": 1}),
             ):
                 self.storage.save_profile(name, kind, settings)
+        self.scan_sessions = ScanSessions(self.storage, self.jobs, validate_settings=self._scan_settings,
+            capture_document=lambda values, event: self._scan_to_document(values, event, generate_preview=False),
+            combine_pages=self._finish_scan_pages, queue_preview=self._queue_preview)
         self.storage.prune()
         self._maintenance_stop = threading.Event()
         self._maintenance_worker = threading.Thread(target=self._maintain, name="dcp150c-retention", daemon=False)
@@ -61,7 +65,8 @@ class ControlCenter:
         capabilities = copy.deepcopy(self._capabilities)
         capabilities.update(scanner=self.scanner.capabilities(), authentication_configured=self.access.configured)
         return {"capabilities": capabilities, "documents": self.storage.list(), "jobs": self.jobs.list(),
-                "profiles": self.storage.profiles(), "settings": self.storage.settings()}
+                "profiles": self.storage.profiles(), "settings": self.storage.settings(),
+                "scan_sessions": self.scan_sessions.list()}
 
     def require_documents(self) -> None:
         if self.processor is None or not self._capabilities["documents"].get("available"):
@@ -101,6 +106,17 @@ class ControlCenter:
                 or settings["mode"] not in {"color", "gray", "lineart"}
                 or settings["output_format"] not in {"pdf", "png", "jpeg"}):
             raise StorageError("invalid_scan_settings", "Choose supported scan settings.")
+        if settings.get("crop") is not None:
+            from .document_processing import validated_crop
+            validated_crop(settings["crop"])
+        area = settings.get("area")
+        if area is not None:
+            import math
+            if not isinstance(area, dict) or set(area) - {"left", "top", "width", "height"}:
+                raise StorageError("invalid_scan_settings", "Choose a scan area inside the original glass.")
+            for name, value in area.items():
+                if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not (0 <= value <= 500) or (name in {"width", "height"} and value <= 0):
+                    raise StorageError("invalid_scan_settings", "Choose a scan area inside the original glass.")
         return settings
 
     def print_document(self, values: dict, key: str | None) -> dict:
@@ -119,7 +135,7 @@ class ControlCenter:
     def detect_scanner(self, key: str | None) -> dict:
         return self.jobs.submit("scanner_detect", {}, lambda event, _identifier: {"scanner": self.scanner.probe(event)}, key)
 
-    def _scan_to_document(self, values: dict, event: threading.Event) -> dict:
+    def _scan_to_document(self, values: dict, event: threading.Event, *, generate_preview: bool = True) -> dict:
         self.require_documents()
         settings = self._scan_settings(values)
         with self.storage.workspace() as directory:
@@ -147,8 +163,30 @@ class ControlCenter:
                     image.convert("RGB").save(output, "JPEG", quality=95)
             name = settings.get("name") or ("Scan " + self._timestamp_name())
             document = self.storage.add(output, name, self.processor.inspect(output))
-        self._make_preview(document["id"], event)
+        if generate_preview:
+            self._make_preview(document["id"], event)
         return document
+
+    def _finish_scan_pages(self, name: str, pages: list[dict], recognize_text: bool,
+                           languages: str, event: threading.Event) -> dict:
+        self.require_documents()
+        with ExitStack() as leases, self.storage.workspace() as directory:
+            prepared_pages = []
+            for index, page in enumerate(pages):
+                source = leases.enter_context(self.storage.lease(page["document_id"]))
+                output = directory / ("page-" + str(index + 1) + ".pdf")
+                self.processor.prepare(source, output, rotation=page["rotation"], crop=page.get("crop"), cancel_event=event)
+                prepared_pages.append(output)
+            combined = directory / "combined.pdf"
+            self.processor.merge(prepared_pages, combined, cancel_event=event)
+            text = None
+            if recognize_text:
+                recognized, text = directory / "searchable.pdf", directory / "text.txt"
+                self.ocr.process(combined, recognized, text, languages, event)
+                combined = recognized
+            if event.is_set():
+                raise StorageError("job_cancelled", "The operation was cancelled.")
+            return self.storage.add(combined, name, self.processor.inspect(combined), text=text)
 
     @staticmethod
     def _timestamp_name() -> str:
@@ -233,6 +271,7 @@ class ControlCenter:
 
     def cancel(self, identifier: str) -> dict:
         job = self.jobs.cancel(identifier)
+        self.scan_sessions.recover()
         if job.get("cups_job_id") and self.printing:
             self.printing.cancel(job["cups_job_id"])
             self.jobs.mark_cancelled(identifier)
@@ -293,6 +332,7 @@ class ControlCenter:
         """Refresh known print jobs and retention without USB traffic or HTTP work."""
         while not self._maintenance_stop.wait(5):
             try:
+                self.scan_sessions.recover()
                 self.storage.prune()
                 if not self.printing:
                     continue

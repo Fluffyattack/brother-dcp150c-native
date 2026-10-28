@@ -45,6 +45,7 @@ class JobManager:
         return {"id": row["id"], "kind": row["kind"], "state": row["state"],
                 "created_at": utc_time(row["created_at"]), "updated_at": utc_time(row["updated_at"]),
                 "message_code": row["message_code"], "document_id": parameters.get("document_id"),
+                "scan_session_id": parameters.get("scan_session_id"),
                 "result_document_id": result.get("document_id"), "cups_job_id": result.get("cups_job_id"),
                 "progress": 100 if row["state"] in {"succeeded", "submitted"} else None,
                 "result": result}
@@ -66,11 +67,12 @@ class JobManager:
             raise StorageError("job_not_found", "This operation is no longer available.")
         return self._record(row)
 
-    def submit(self, kind: str, parameters: dict, action: Callable, idempotency_key: str | None = None) -> dict:
+    def submit(self, kind: str, parameters: dict, action: Callable, idempotency_key: str | None = None,
+               *, on_reserved: Callable | None = None) -> dict:
         request_hash = hashlib.sha256(json.dumps([kind, parameters], sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         if idempotency_key is not None and not re.fullmatch(r"[a-zA-Z0-9_.-]{8,128}", idempotency_key):
             raise StorageError("invalid_request", "The request identifier is invalid.")
-        with self._guard, self.storage.guard, self.storage.connection:
+        with self._guard, self.storage.guard:
             if idempotency_key:
                 previous = self.storage.connection.execute("SELECT * FROM jobs WHERE idempotency_key=?", (idempotency_key,)).fetchone()
                 if previous:
@@ -81,9 +83,14 @@ class JobManager:
                 raise StorageError("job_queue_full", "Wait for current operations to finish before starting another one.")
             identifier, now = uuid.uuid4().hex, time.time()
             event = threading.Event()
+            # The reservation and associated workflow metadata commit together.
+            # Never expose work to the worker before its durable record exists.
+            with self.storage.connection:
+                self.storage.connection.execute("INSERT INTO jobs VALUES (?,?,?,?,?,?,?,?,?,?)", (
+                    identifier, kind, "queued", now, now, json.dumps(parameters), "{}", "job_queued", idempotency_key, request_hash))
+                if on_reserved:
+                    on_reserved(identifier)
             self._events[identifier] = event
-            self.storage.connection.execute("INSERT INTO jobs VALUES (?,?,?,?,?,?,?,?,?,?)", (
-                identifier, kind, "queued", now, now, json.dumps(parameters), "{}", "job_queued", idempotency_key, request_hash))
             self._queue.put_nowait((identifier, event, action))
             return self.get(identifier)
 
@@ -94,6 +101,8 @@ class JobManager:
                 event = self._events.get(identifier)
                 if event:
                     event.set()
+                if job["state"] == "queued":
+                    self._update(identifier, "cancelled", "job_cancelled")
             return job
 
     def mark_cancelled(self, identifier: str) -> None:

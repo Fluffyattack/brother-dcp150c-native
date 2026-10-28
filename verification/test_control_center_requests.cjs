@@ -115,6 +115,46 @@ async function main() {
   assert.ok(!saved.includes("never-store-document-contents"));
   console.log("PASS: passwords and raw upload data never enter pending-request storage");
 
+  for (const [route, responseField] of [["/api/scan-sessions", "scan_session"], ["/api/scan-sessions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pages", "job"]]) {
+    const workflowStorage = new Map(), accepted = new Map(), workflowKeys = [];
+    let loseResponse = true;
+    const workflowFetch = async (path, options) => {
+      const key = options.headers.get("Idempotency-Key");
+      workflowKeys.push(key);
+      if (!accepted.has(key)) accepted.set(key, { [responseField]: { id: "a".repeat(32) + accepted.size } });
+      const result = accepted.get(key);
+      if (loseResponse) {
+        loseResponse = false;
+        return new Promise((resolve, reject) => {
+          const delayed = setTimeout(() => resolve(new Response(JSON.stringify(result))), 100);
+          options.signal.addEventListener("abort", () => { clearTimeout(delayed); reject(new DOMException("Lost response", "AbortError")); }, { once: true });
+        });
+      }
+      return new Response(JSON.stringify(result));
+    };
+    let workflowBrowser = createBrowser(workflowStorage, workflowFetch);
+    const expression = `controlRequest(${JSON.stringify(route)}, { method: "POST", body: { revision: 0 }, timeout: 10 })`;
+    await assert.rejects(workflowBrowser(expression), (error) => error.code === "request_timeout");
+    workflowBrowser = createBrowser(workflowStorage, workflowFetch);
+    await workflowBrowser(expression);
+    assert.equal(accepted.size, 1);
+    assert.equal(workflowKeys[0], workflowKeys[1]);
+    await workflowBrowser(expression);
+    assert.equal(accepted.size, 2);
+    console.log(`PASS: a lost ${responseField === "job" ? "next-page" : "new-document"} response survives reload without duplicating work`);
+  }
+
+  const scanningSource = readFileSync(join(__dirname, "../dcp150c/static/scan-sessions.js"), "utf8");
+  const scannerContext = vm.createContext({});
+  vm.runInContext(scanningSource.slice(0, scanningSource.indexOf('findElementById("jump-to-scan-sessions")')), scannerContext);
+  vm.runInContext('var restoredSettings = []; function findElementById() { return {}; } function applyFormSettings(form, settings) { restoredSettings.push(settings); }', scannerContext);
+  vm.runInContext('var session = { id: "example", settings: { mode: "gray", resolution: 100 } }; restoreScanSessionSettings(session, false);', scannerContext);
+  assert.equal(vm.runInContext('restoredSettings.length', scannerContext), 0);
+  vm.runInContext('restoreScanSessionSettings(session, true); restoreScanSessionSettings(session, true);', scannerContext);
+  assert.equal(vm.runInContext('restoredSettings.length', scannerContext), 1);
+  assert.equal(vm.runInContext('restoredSettings[0].resolution', scannerContext), 100);
+  console.log("PASS: saved scan settings survive an unavailable scanner and restore once after discovery");
+
   let anonymousSessions = 0;
   let submittedLoginToken = null;
   const loginStorage = new Map();

@@ -115,3 +115,20 @@ button[aria-busy="true"] { opacity:.6; cursor:progress }
 @media (max-width:850px) { .control-tabs button { padding:12px 11px } .tab-number { display:none } .workspace-grid { gap:18px } .workspace-card { padding:20px } .library-layout.has-detail { grid-template-columns:1fr } }
 @media (max-width:650px) { .control-tabs { margin-bottom:22px } .workspace-grid { grid-template-columns:1fr } .view-heading { align-items:flex-start; flex-direction:column; gap:18px; margin:22px 0 } .view-heading h2 { font-size:27px } .access-panel { padding:19px } .access-symbol { display:none } .access-panel form { flex-wrap:wrap } .access-panel input { flex-basis:170px } .library-toolbar .search-field { flex-basis:100% } .library-toolbar .secondary-button { margin-inline-start:auto } .control-job { gap:10px } .control-job-actions { flex-direction:column; align-items:flex-end; gap:5px } .control-job-actions .secondary-button { padding:7px 9px; min-height:30px } .document-preview { min-height:240px } .profile-card { padding:20px } }
 @media (max-width:360px) { .workspace-card { padding:16px } .form-row { gap:10px } .inline-form { flex-direction:column; align-items:stretch } .inline-form button { align-self:flex-start } .access-panel form .primary-button { width:100% } .crop-fields { grid-template-columns:1fr 1fr } }
+.scan-session-panel { margin-top:24px; scroll-margin-top:20px }
+.scan-session-pages { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)); gap:16px; margin:20px 0 }
+.scan-session-page { padding:16px; border:1px solid var(--border-color); border-radius:10px; min-width:0 }
+.scan-session-page h4 { margin:0 0 12px; font-size:14px }
+.scan-session-page .document-preview { min-height:150px; max-height:240px; padding:10px }
+.scan-session-page .document-preview img { max-height:220px }
+.scan-session-page-actions { display:flex; flex-wrap:wrap; gap:7px }
+.scan-session-page-actions .secondary-button,.scan-session-page-actions .text-button { padding:7px 9px; min-height:35px; font-size:11px }
+.scan-session-finish { border-top:1px solid var(--border-color); padding-top:20px; max-width:520px }
+.action-dialog { box-sizing:border-box; width:min(540px,calc(100% - 28px)); max-height:calc(100vh - 40px); overflow:auto; padding:25px; border:1px solid #395269; border-radius:16px; color:var(--text-color); background:#121d2c }
+.action-dialog::backdrop { background:#030711d9 }
+.action-dialog h2 { font-size:24px; margin:0 0 18px }
+.action-dialog label { display:flex; flex-direction:column; gap:8px; font-size:12px; margin:15px 0 }
+.action-dialog input,.action-dialog select { box-sizing:border-box; width:100%; min-width:0; border:1px solid #303d53; border-radius:8px; background:#0b1220; color:var(--text-color); padding:10px }
+.action-dialog .crop-fields label { margin:0 }
+.action-dialog .button-row { margin-top:20px; justify-content:flex-end }
+@media(max-width:360px) { .action-dialog { padding:17px } .scan-session-panel .button-row>* { max-width:100% } }

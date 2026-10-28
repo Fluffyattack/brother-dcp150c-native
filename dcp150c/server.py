@@ -34,6 +34,7 @@ ASSETS = {
     "/assets/translations.js": ("translations.js", "text/javascript; charset=utf-8"),
     "/assets/control-center.js": ("control-center.js", "text/javascript; charset=utf-8"),
     "/assets/control-center.css": ("control-center.css", "text/css; charset=utf-8"),
+    "/assets/scan-sessions.js": ("scan-sessions.js", "text/javascript; charset=utf-8"),
     "/assets/styles.css": ("styles.css", "text/css; charset=utf-8"),
     "/favicon.svg": ("favicon.svg", "image/svg+xml"),
 }
@@ -283,6 +284,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     center.storage.delete(parts[2])
                 elif len(parts) == 3 and parts[:2] == ["api", "profiles"]:
                     center.storage.delete_profile(parts[2])
+                elif len(parts) == 3 and parts[:2] == ["api", "scan-sessions"]:
+                    center.scan_sessions.delete(parts[2])
                 else:
                     self._error("not_found", 404)
                     return
@@ -296,6 +299,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 result = {"job": center.detect_scanner(request_key)}
             elif path == "/api/scan":
                 result = {"job": center.scan(values, request_key)}
+            elif path == "/api/scan-sessions":
+                result = {"scan_session": center.scan_sessions.create(values, request_key)}
+            elif len(parts) == 3 and parts[:2] == ["api", "scan-sessions"]:
+                result = {"scan_session": center.scan_sessions.update(parts[2], values)}
+            elif len(parts) == 4 and parts[:2] == ["api", "scan-sessions"] and parts[3] == "pages":
+                result = {"job": center.scan_sessions.capture(parts[2], values, request_key)}
+            elif len(parts) == 4 and parts[:2] == ["api", "scan-sessions"] and parts[3] == "finish":
+                result = {"job": center.scan_sessions.finish(parts[2], values, request_key)}
             elif path == "/api/copy":
                 result = {"job": center.copy(values, request_key)}
             elif path == "/api/documents/merge":
@@ -323,7 +334,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             # Only stable identifiers go to the browser, never exception paths or tool output.
             if not isinstance(code, str) or not code.replace("_", "").isalnum() or len(code) > 80:
                 code = "invalid_request"
-            status = 429 if code == "login_rate_limited" else 401 if code == "login_failed" else 413 if code == "upload_too_large" else 400
+            status = (429 if code == "login_rate_limited" else 401 if code == "login_failed" else 413 if code == "upload_too_large"
+                      else 409 if code in {"scan_session_busy", "scan_session_conflict", "request_conflict"} else 400)
             self._error(code, status)
         except (OSError, TypeError, KeyError):
             self._error("processing_failed", 500)
@@ -387,6 +399,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
             try:
                 if url.path == "/api/control-center":
                     self._json(200, center.snapshot(), head_only=head_only)
+                    return
+                parts = url.path.strip("/").split("/")
+                if len(parts) == 3 and parts[:2] == ["api", "scan-sessions"]:
+                    self._json(200, {"scan_session": center.scan_sessions.get(parts[2])}, head_only=head_only)
                     return
                 if url.path == "/api/settings/export":
                     payload = json.dumps(center.export_settings(), ensure_ascii=False, indent=2).encode()
