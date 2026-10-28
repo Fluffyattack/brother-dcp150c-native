@@ -2,7 +2,7 @@
   "date": "2026-10-28",
   "scope": "Offline Control Center, document, OCR and native scanner software verification",
   "python_workflows": {
-    "tests": 46,
+    "tests": 52,
     "hardware_submissions": false,
     "includes": [
       "Authenticated HTTP requests and protected downloads",
@@ -18,7 +18,7 @@
     ]
   },
   "browser_request_recovery": {
-    "tests": 12,
+    "tests": 13,
     "includes": [
       "Lost response and page reload reuse the accepted operation",
       "Explicit new operation after a known response gets a new identifier",
@@ -33,6 +33,14 @@
     ]
   },
   "existing_print_installation_checks": 14,
+  "preview_and_scan_area": {
+    "software_checks": 6,
+    "geometry_checks": 5,
+    "real_browser_checks": 9,
+    "backend_used_for_acquisition": "isolated SANE test backend",
+    "hardware_verified": false,
+    "includes": ["Whole-glass low-resolution preview", "Mouse, touch and numeric selection", "Physical millimetres to actual scanner arguments", "Real output pixel dimensions at a different resolution", "Preview metadata after restart", "Profile and multipage preservation", "Explicit copy-region confirmation", "Original document schema compatibility"]
+  },
   "multipage_scanning": {
     "software_checks": 13,
     "real_browser_checks": 9,

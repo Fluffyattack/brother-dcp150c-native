@@ -227,7 +227,7 @@ class ScannerService:
                 image.verify()
                 result = {"width": image.width, "height": image.height,
                           "resolution": resolution, "mode": mode, "area": area,
-                          "content_type": "image/png", "hardware_verified": not self.allow_test_backend}
+                          "device": self.device, "content_type": "image/png", "hardware_verified": not self.allow_test_backend}
             self._set_capabilities({"hardware_verified": not self.allow_test_backend})
             succeeded = True
             return result

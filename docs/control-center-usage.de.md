@@ -18,11 +18,17 @@ Kontrolliere die Zusammenfassung und bestätige **Drucken**. Erst diese Bestäti
 
 Schalte den Drucker ein und lege das Original auf das Vorlagenglas. **Scanner prüfen** sucht ausdrücklich nach diesem Modell und liest die angebotenen Einstellungen. Die Auswahl zeigt anschließend die gemeldeten Auflösungen und Farbmodi. Erst **Scannen** startet die Aufnahme. Bei fehlender Verbindung erscheint eine Erklärung.
 
+**Schnelle Vorschau** liest das gesamte gemeldete Vorlagenglas mit der niedrigsten unterstützten Auflösung ein. Ziehe auf dem Vorschaubild ein Rechteck oder trage Position und Größe unter **Scanbereich auswählen** in Millimetern ein. Der folgende Scan verwendet diesen Bereich mit der separat gewählten Auflösung. **Gesamtes Vorlagenglas verwenden** setzt die Auswahl zurück. Wenn du die Vorlage verschiebst, fordere eine neue Vorschau an. Gespeicherte Vorschauen bleiben nach einem Browserneustart verfügbar; eine neue Aufnahme wird dabei nicht automatisch gestartet.
+
+Der gewählte Bereich wird auch in Scan-Profilen und mehrseitigen Scan-Dokumenten gespeichert. Ein Wert außerhalb der vom Scanner gemeldeten Grenzen wird vor der Aufnahme abgewiesen.
+
 Für mehrere Seiten legst du unter **Mehrseitiges Dokument** ein neues Dokument an. **Erste Seite scannen** übernimmt die erste Vorlage. Danach tauscht du die Vorlage aus und wählst **Weitere Seite scannen**. Die Seitenliste bleibt auf dem Pi gespeichert; nach dem Schließen oder Neuladen des Browsers kannst du dasselbe Dokument fortsetzen. Farbmodus und Auflösung werden dabei wiederhergestellt.
 
 Mit **Nach vorne**, **Nach hinten**, **Drehen oder zuschneiden** und **Seite entfernen** ordnest du die Seiten vor dem Abschluss. **Fertige PDF speichern** erstellt eine gemeinsame Datei mit bis zu 25 Seiten. Auf Wunsch läuft dabei direkt die Texterkennung mit. Ein Abbruch lässt das Scan-Dokument zur weiteren Bearbeitung offen. Entfernen einer Seite oder eines Scan-Dokuments löscht die Originaldateien nicht; sie bleiben in **Dokumente** und unterliegen dort der eingestellten Aufbewahrung. Solange ein Scan-Dokument noch auf seine Originale verweist, sind sie vor der automatischen Löschung geschützt. Es wird kein automatischer Vorlageneinzug vorausgesetzt.
 
 **Kopieren** liest zunächst das Original ein und erzeugt daraus einen Druckauftrag. Wenn das Einlesen scheitert oder abgebrochen wird, beginnt kein Druck. Die Scanner- und Kopierpfade benötigen einen passenden nativen Scanner-Treiber. Die erste Aufnahme am DCP-150C und der Wechsel zwischen Scannen und Drucken bleiben eigenständige Gerätetests.
+
+Für einen Ausschnitt aktiviere unter **Kopieren** ausdrücklich **Nur den unter Scannen gewählten Bereich kopieren**. Ohne diese Auswahl wird der normale Dokumentbereich verwendet. Die Bestätigung zeigt den gewählten Bereich an. Über **Bild auf der Seite** wählst du Einpassen oder Ausfüllen des Papiers.
 
 ## Dokumente und Texterkennung
 

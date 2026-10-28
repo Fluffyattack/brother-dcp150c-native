@@ -132,3 +132,14 @@ button[aria-busy="true"] { opacity:.6; cursor:progress }
 .action-dialog .crop-fields label { margin:0 }
 .action-dialog .button-row { margin-top:20px; justify-content:flex-end }
 @media(max-width:360px) { .action-dialog { padding:17px } .scan-session-panel .button-row>* { max-width:100% } }
+.scan-area-fields { border:1px solid var(--border-color); border-radius:10px; padding:16px; margin:20px 0 }
+.scan-area-fields legend { padding:0 7px; color:#b2bfd3; font-size:12px }
+.scan-area-fields .form-row { gap:12px }
+.scan-area-fields .form-row label { margin-bottom:12px }
+.scan-area-fields .text-button { min-height:30px; padding-block:4px; font-size:11px }
+.scan-area-canvas { position:relative; max-width:360px; margin:12px auto; line-height:0; background:white; user-select:none }
+.scan-area-canvas img { display:block; width:100%; height:auto; pointer-events:none }
+.scan-area-canvas svg { position:absolute; inset:0; width:100%; height:100%; cursor:crosshair; touch-action:none }
+#scan-area-shade { fill:#06111bcc; pointer-events:none }
+#scan-area-selection { fill:#1cdee71a; stroke:#13b9c3; stroke-width:2px; vector-effect:non-scaling-stroke; pointer-events:none }
+@media(max-width:360px) { .scan-area-fields { padding:12px } }

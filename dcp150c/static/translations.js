@@ -994,3 +994,45 @@ const scanSessionTranslations = {
 for (const [language, messages] of Object.entries(scanSessionTranslations)) {
   Object.assign(dashboardLanguages[language].messages, messages);
 }
+
+const scanAreaTranslations = {
+  en: {
+    "scan_area.heading": "Choose the scan area",
+    "scan_area.help": "Request a quick preview, then drag over the part you want to scan. You can also enter its position and size in millimetres.",
+    "scan_area.drag_label": "Drag to choose the scan area, or use the position and size fields below",
+    "scan_area.left": "From the left (mm)", "scan_area.top": "From the top (mm)",
+    "scan_area.width": "Width (mm)", "scan_area.height": "Height (mm)",
+    "scan_area.summary": "{width} × {height} mm · left {left} mm · top {top} mm",
+    "scan_area.full": "Use the whole glass",
+    "scan_area.save_profile": "Save these scan settings as a profile",
+    "scan_area.profile_help": "Enter a profile name. The current scan mode, resolution, format and selected area will be saved.",
+    "scan_area.no_preview": "A quick preview shows the whole scanner glass. It starts only when you request it.",
+    "scan_area.preview_ready": "Drag a rectangle on this preview to choose the next scan area. Replace the preview if you move your original.",
+    "scan_area.preview_saved": "This is your saved preview. Check the scanner connection before starting another scan.",
+    "scan_area.invalid": "Choose an area at least 1 mm wide and high, entirely inside the scanner glass.",
+    "scan_area.copy_selected": "Copy only the area selected in Scan",
+    "scan_area.copy_help": "Choose the area in Scan first. Leave this unchecked to copy the normal document area.",
+    "jobs.kind.scan_preview": "Reading the scanner preview"
+  },
+  de: {
+    "scan_area.heading": "Scanbereich auswählen",
+    "scan_area.help": "Fordere eine schnelle Vorschau an und ziehe über den gewünschten Ausschnitt. Position und Größe kannst du auch in Millimetern eingeben.",
+    "scan_area.drag_label": "Scanbereich durch Ziehen auswählen oder die Felder für Position und Größe darunter verwenden",
+    "scan_area.left": "Abstand von links (mm)", "scan_area.top": "Abstand von oben (mm)",
+    "scan_area.width": "Breite (mm)", "scan_area.height": "Höhe (mm)",
+    "scan_area.summary": "{width} × {height} mm · links {left} mm · oben {top} mm",
+    "scan_area.full": "Gesamtes Vorlagenglas verwenden",
+    "scan_area.save_profile": "Diese Scaneinstellungen als Profil speichern",
+    "scan_area.profile_help": "Gib dem Profil einen Namen. Farbmodus, Auflösung, Format und der gewählte Scanbereich werden gespeichert.",
+    "scan_area.no_preview": "Eine schnelle Vorschau zeigt das gesamte Vorlagenglas. Sie startet erst, wenn du sie ausdrücklich anforderst.",
+    "scan_area.preview_ready": "Ziehe auf der Vorschau ein Rechteck für den nächsten Scanbereich. Fordere eine neue Vorschau an, wenn du die Vorlage verschiebst.",
+    "scan_area.preview_saved": "Dies ist deine gespeicherte Vorschau. Prüfe die Scannerverbindung, bevor du erneut scannst.",
+    "scan_area.invalid": "Wähle einen mindestens 1 mm breiten und hohen Bereich, der vollständig auf dem Vorlagenglas liegt.",
+    "scan_area.copy_selected": "Nur den unter Scannen gewählten Bereich kopieren",
+    "scan_area.copy_help": "Wähle den Bereich zuerst unter Scannen. Ohne diese Auswahl wird der normale Dokumentbereich kopiert.",
+    "jobs.kind.scan_preview": "Scanner-Vorschau einlesen"
+  }
+};
+for (const [language, messages] of Object.entries(scanAreaTranslations)) {
+  Object.assign(dashboardLanguages[language].messages, messages);
+}

@@ -31,7 +31,7 @@ function restoreScanSessionSettings(session, scannerAvailable) {
   // A service restart clears discovered capabilities. Wait for the explicit
   // scanner check before restoring values that may be absent from the form.
   if (scannerAvailable && appliedScanSessionIdentifier !== session.id) {
-    applyFormSettings(findElementById("scan-form"), { mode: session.settings.mode, resolution: session.settings.resolution });
+    applyFormSettings(findElementById("scan-form"), { mode: session.settings.mode, resolution: session.settings.resolution, area: session.settings.area || null });
     appliedScanSessionIdentifier = session.id;
   }
 }
@@ -61,7 +61,7 @@ function renderScanSessions(force = false) {
   const nextPage = findElementById("scan-session-next-page");
   nextPage.textContent = controlText(session.page_count ? "scan_session.next_page" : "scan_session.first_page");
   nextPage.hidden = session.state === "completed";
-  if (!nextPage.hasAttribute("aria-busy")) nextPage.disabled = !editable || !scannerAvailable || session.page_count >= 25;
+  if (!nextPage.hasAttribute("aria-busy")) nextPage.disabled = !editable || !scannerAvailable || session.page_count >= 25 || (typeof scanAreaIsValid === "function" && !scanAreaIsValid());
   const cancelButton = findElementById("scan-session-cancel-job");
   cancelButton.hidden = !busy;
   findElementById("scan-session-discard").disabled = busy;
@@ -184,6 +184,7 @@ findElementById("scan-session-create-form").addEventListener("submit", (event) =
 findElementById("scan-session-next-page").addEventListener("click", (event) => {
   const session = currentScanSession();
   if (!session) return;
+  if (typeof scanAreaIsValid === "function" && !scanAreaIsValid()) { showControlFeedback("scan_area.invalid", {}, true); return; }
   const settings = readFormSettings(findElementById("scan-form"));
   delete settings.profile;
   startDocumentJob(`/api/scan-sessions/${session.id}/pages`, { revision: session.revision, settings }, event.currentTarget);

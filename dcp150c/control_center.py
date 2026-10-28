@@ -103,8 +103,8 @@ class ControlCenter:
             raise StorageError("invalid_scan_settings", "Choose supported scan settings.")
         settings = {"resolution": 300, "mode": "color", "output_format": "pdf", **values}
         if (type(settings["resolution"]) is not int or settings["resolution"] not in {75, 100, 150, 200, 300, 600}
-                or settings["mode"] not in {"color", "gray", "lineart"}
-                or settings["output_format"] not in {"pdf", "png", "jpeg"}):
+                or not isinstance(settings["mode"], str) or settings["mode"] not in {"color", "gray", "lineart"}
+                or not isinstance(settings["output_format"], str) or settings["output_format"] not in {"pdf", "png", "jpeg"}):
             raise StorageError("invalid_scan_settings", "Choose supported scan settings.")
         if settings.get("crop") is not None:
             from .document_processing import validated_crop
@@ -135,12 +135,13 @@ class ControlCenter:
     def detect_scanner(self, key: str | None) -> dict:
         return self.jobs.submit("scanner_detect", {}, lambda event, _identifier: {"scanner": self.scanner.probe(event)}, key)
 
-    def _scan_to_document(self, values: dict, event: threading.Event, *, generate_preview: bool = True) -> dict:
+    def _scan_to_document(self, values: dict, event: threading.Event, *, generate_preview: bool = True,
+                          scan_kind: str = "scan") -> dict:
         self.require_documents()
         settings = self._scan_settings(values)
         with self.storage.workspace() as directory:
             scanned = directory / "scan.png"
-            self.scanner.scan(scanned, {key: value for key, value in settings.items() if key in {"resolution", "mode", "area"}}, event)
+            scan_result = self.scanner.scan(scanned, {key: value for key, value in settings.items() if key in {"resolution", "mode", "area"}}, event)
             if settings.get("crop") is not None:
                 from .document_processing import validated_crop
                 from PIL import Image
@@ -162,7 +163,8 @@ class ControlCenter:
                 with Image.open(scanned) as image:
                     image.convert("RGB").save(output, "JPEG", quality=95)
             name = settings.get("name") or ("Scan " + self._timestamp_name())
-            document = self.storage.add(output, name, self.processor.inspect(output))
+            scan_metadata = {**scan_result, "kind": scan_kind} if isinstance(scan_result, dict) and "area" in scan_result else None
+            document = self.storage.add(output, name, self.processor.inspect(output), scan_metadata=scan_metadata)
         if generate_preview:
             self._make_preview(document["id"], event)
         return document
@@ -200,6 +202,22 @@ class ControlCenter:
     def scan(self, values: dict, key: str | None) -> dict:
         settings = self._scan_settings(values)
         return self.jobs.submit("scan", settings, lambda event, _identifier: {"document_id": self._scan_to_document(settings, event)["id"]}, key)
+
+    def preview_scan(self, values: dict, key: str | None) -> dict:
+        if not isinstance(values, dict) or set(values) - {"mode"} or not isinstance(values.get("mode", "color"), str) or values.get("mode", "color") not in {"color", "gray", "lineart"}:
+            raise StorageError("invalid_scan_settings", "Choose a supported preview mode.")
+        reserved = {}
+        def reserve(_identifier):
+            capabilities = self.scanner.capabilities()
+            if not capabilities.get("available") or not capabilities.get("resolutions"):
+                raise StorageError("scanner_not_found", "Check the scanner before requesting a preview.")
+            area = capabilities["area"]
+            reserved.update(settings={"mode": values.get("mode", "color"), "resolution": min(capabilities["resolutions"]),
+                "output_format": "png", "area": {"left": 0, "top": 0, "width": area["width"], "height": area["height"]}})
+        def action(event, _identifier):
+            document = self._scan_to_document(reserved["settings"], event, scan_kind="preview")
+            return {"document_id": document["id"]}
+        return self.jobs.submit("scan_preview", values, action, key, on_reserved=reserve)
 
     def copy(self, values: dict, key: str | None) -> dict:
         self.require_documents()

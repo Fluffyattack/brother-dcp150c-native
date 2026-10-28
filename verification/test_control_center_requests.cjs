@@ -115,7 +115,7 @@ async function main() {
   assert.ok(!saved.includes("never-store-document-contents"));
   console.log("PASS: passwords and raw upload data never enter pending-request storage");
 
-  for (const [route, responseField] of [["/api/scan-sessions", "scan_session"], ["/api/scan-sessions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pages", "job"]]) {
+  for (const [route, responseField, label] of [["/api/scan-sessions", "scan_session", "new-document"], ["/api/scan-sessions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pages", "job", "next-page"], ["/api/scanner/preview", "job", "scanner-preview"]]) {
     const workflowStorage = new Map(), accepted = new Map(), workflowKeys = [];
     let loseResponse = true;
     const workflowFetch = async (path, options) => {
@@ -141,7 +141,7 @@ async function main() {
     assert.equal(workflowKeys[0], workflowKeys[1]);
     await workflowBrowser(expression);
     assert.equal(accepted.size, 2);
-    console.log(`PASS: a lost ${responseField === "job" ? "next-page" : "new-document"} response survives reload without duplicating work`);
+    console.log(`PASS: a lost ${label} response survives reload without duplicating work`);
   }
 
   const scanningSource = readFileSync(join(__dirname, "../dcp150c/static/scan-sessions.js"), "utf8");

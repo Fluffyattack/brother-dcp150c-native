@@ -72,7 +72,7 @@ function savePendingControlRequests() {
 
 function needsDurableRequestKey(method, path, body) {
   if (method !== "POST" || body instanceof Blob) return false;
-  return ["/api/print", "/api/copy", "/api/scan", "/api/scanner/detect", "/api/documents/merge"].includes(path)
+  return ["/api/print", "/api/copy", "/api/scan", "/api/scanner/detect", "/api/scanner/preview", "/api/documents/merge"].includes(path)
     || /^\/api\/documents\/[a-zA-Z0-9_-]+\/(?:ocr|transform)$/.test(path)
     || path === "/api/scan-sessions" || /^\/api\/scan-sessions\/[a-f0-9]{32}\/(?:pages|finish)$/.test(path);
 }
@@ -226,6 +226,7 @@ function clearPrivateViews() {
   if (findElementById("action-confirmation").open) findElementById("action-confirmation").close();
   confirmationAction = null;
   if (typeof clearScanSessionViews === "function") clearScanSessionViews();
+  if (typeof clearScanAreaViews === "function") clearScanAreaViews();
   showControlView("overview");
 }
 
@@ -432,12 +433,18 @@ function readFormSettings(form) {
   for (const key of ["copies", "resolution", "rotation", "retention_hours", "max_storage_mb"]) {
     if (key in settings) settings[key] = Number(settings[key]);
   }
-  return settings;
+  return typeof settingsWithScanArea === "function" ? settingsWithScanArea(form, settings) : settings;
 }
 
 function applyFormSettings(form, settings) {
+  if (form.id === "copy-form" && !settings?.area) findElementById("copy-use-scan-area").checked = false;
   const aliases = { paper: "paper_size", color: "colour", pages: "page_ranges", fit: "image_fit" };
   for (const [key, value] of Object.entries(settings || {})) {
+    if (key === "area" && ["scan-form", "copy-form"].includes(form.id) && typeof applyScanAreaSettings === "function") {
+      applyScanAreaSettings(value);
+      if (form.id === "copy-form") findElementById("copy-use-scan-area").checked = Boolean(value);
+      continue;
+    }
     const fieldName = form.id === "copy-form" && key === "mode" ? "colour" : aliases[key] || key;
     const field = form.elements.namedItem(fieldName);
     let fieldValue = value === null ? "" : String(value);
@@ -470,7 +477,12 @@ function updateScannerControls() {
   }
   for (const formIdentifier of ["scan-form", "copy-form"]) {
     const form = findElementById(formIdentifier);
-    form.querySelectorAll("button").forEach((button) => { if (!button.hasAttribute("aria-busy")) button.disabled = !available; });
+    form.querySelectorAll("button").forEach((button) => {
+      if (button.type !== "submit" && button.id !== "scan-preview-button") return;
+      const usesArea = formIdentifier === "scan-form" || findElementById("copy-use-scan-area").checked;
+      const invalidArea = usesArea && button.id !== "scan-preview-button" && typeof scanAreaIsValid === "function" && !scanAreaIsValid();
+      if (!button.hasAttribute("aria-busy")) button.disabled = !available || invalidArea;
+    });
   }
   const scanForm = findElementById("scan-form");
   setScannerOptions(scanForm.elements.mode, scanner.modes, (mode) => controlText(mode === "gray" || mode === "Gray" || mode === "Grayscale" ? "print.grayscale" : mode === "lineart" || mode === "Lineart" ? "scan.lineart" : "print.full_colour"));
@@ -629,8 +641,9 @@ function renderControlCenter() {
     updateSupportedPrintOptions();
     updateOCRLanguageOptions();
   }
+  if (typeof renderScanArea === "function") renderScanArea();
   if (typeof renderScanSessions === "function") renderScanSessions();
-  const latestScanJob = controlState.jobs.find((job) => ["scan", "copy", "scan_page"].includes(job.kind) && job.result_document_id);
+  const latestScanJob = controlState.jobs.find((job) => ["scan", "copy", "scan_page", "scan_preview"].includes(job.kind) && job.result_document_id);
   const latestScan = latestScanJob ? controlState.documents.find((record) => record.id === latestScanJob.result_document_id) : null;
   const latestContainer = findElementById("scan-latest");
   if (latestScan && latestContainer.dataset.record !== latestScan.id) {
@@ -656,6 +669,7 @@ function showActionConfirmation(kind, settings, action) {
     ["print.quality", controlText(`quality.${settings.quality || "Normal"}`)],
     ...(kind === "print" ? [["print.pages", settings.page_ranges || controlText("print.all_pages")]] : [])
   ];
+  if (settings.area && typeof describeScanArea === "function") pairs.push(["scan_area.heading", describeScanArea(settings.area)]);
   for (const [label, value] of pairs) details.append(makeElement("dt", "", controlText(label)), makeElement("dd", "", value));
   confirmationAction = action;
   dialog.showModal();
@@ -738,7 +752,8 @@ findElementById("print-form").addEventListener("submit", (event) => {
 });
 findElementById("copy-form").addEventListener("submit", (event) => {
   event.preventDefault();
-  const settings = { ...readFormSettings(event.currentTarget), media: "Plain", image_fit: "fit" };
+  if (findElementById("copy-use-scan-area").checked && typeof scanAreaIsValid === "function" && !scanAreaIsValid()) { showControlFeedback("scan_area.invalid", {}, true); return; }
+  const settings = { ...readFormSettings(event.currentTarget), media: "Plain" };
   settings.mode = settings.colour === "Mono" ? "gray" : "color";
   showActionConfirmation("copy", settings, () => startDocumentJob("/api/copy", settings, findElementById("confirmation-submit")));
 });
@@ -756,14 +771,13 @@ findElementById("detect-scanner").addEventListener("click", (event) => startDocu
 findElementById("scan-form").addEventListener("submit", (event) => {
   event.preventDefault();
   const form = event.currentTarget;
+  if (typeof scanAreaIsValid === "function" && !scanAreaIsValid()) { showControlFeedback("scan_area.invalid", {}, true); return; }
   const settings = readFormSettings(form);
   delete settings.profile;
   startDocumentJob("/api/scan", settings, form.querySelector("[type='submit']"));
 });
 findElementById("scan-preview-button").addEventListener("click", (event) => {
-  const resolutions = controlState?.capabilities?.scanner?.resolutions || [75];
-  const settings = { ...readFormSettings(findElementById("scan-form")), resolution: Math.min(...resolutions), output_format: "png" };
-  startDocumentJob("/api/scan", settings, event.currentTarget);
+  startDocumentJob("/api/scanner/preview", { mode: findElementById("scan-form").elements.mode.value }, event.currentTarget);
 });
 findElementById("scan-profile").addEventListener("change", (event) => {
   const profile = controlState?.profiles?.find((item) => item.id === event.target.value);

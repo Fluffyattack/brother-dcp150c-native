@@ -8,11 +8,12 @@
   <title data-translation="page.title">Brother DCP-150C · Printer status</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/assets/styles.css?v=3">
-  <link rel="stylesheet" href="/assets/control-center.css?v=2">
-  <script src="/assets/translations.js?v=4" defer></script>
+  <link rel="stylesheet" href="/assets/control-center.css?v=3">
+  <script src="/assets/translations.js?v=5" defer></script>
   <script src="/assets/app.js?v=3" defer></script>
-  <script src="/assets/control-center.js?v=2" defer></script>
-  <script src="/assets/scan-sessions.js?v=1" defer></script>
+  <script src="/assets/control-center.js?v=3" defer></script>
+  <script src="/assets/scan-sessions.js?v=2" defer></script>
+  <script src="/assets/scan-area.js?v=1" defer></script>
 </head>
 <body>
   <div class="shell">
@@ -138,6 +139,18 @@
             <div class="form-row"><label><span data-translation="scan.mode">Scan mode</span><select name="mode"><option value="color" data-translation="print.full_colour">Full colour</option><option value="gray" data-translation="print.grayscale">Grayscale</option><option value="lineart" data-translation="scan.lineart">Black and white</option></select></label><label><span data-translation="scan.resolution">Resolution</span><select name="resolution"><option value="75">75 dpi</option><option value="150">150 dpi</option><option value="300" selected>300 dpi</option><option value="600">600 dpi</option></select></label></div>
             <label><span data-translation="scan.output">Save as</span><select name="output_format"><option value="pdf">PDF</option><option value="png">PNG</option><option value="jpeg">JPEG</option></select></label>
             <p class="field-help" data-translation="scan.resolution_help">Dpi means dots per inch. For most text documents, 300 dpi is a useful starting point.</p>
+            <fieldset class="scan-area-fields"><legend data-translation="scan_area.heading">Choose the scan area</legend>
+              <p class="field-help" data-translation="scan_area.help">Request a quick preview, then drag over the part you want to scan. You can also enter its position and size in millimetres.</p>
+              <div id="scan-area-canvas" class="scan-area-canvas" hidden>
+                <img id="scan-area-image" alt="" draggable="false">
+                <svg id="scan-area-overlay" viewBox="0 0 1 1" preserveAspectRatio="none" data-translation-label="scan_area.drag_label" aria-label="Drag to choose the scan area"><path id="scan-area-shade" fill-rule="evenodd"></path><rect id="scan-area-selection" x="0" y="0" width="1" height="1"></rect></svg>
+              </div>
+              <p id="scan-area-preview-note" class="field-help" role="status"></p>
+              <div class="form-row"><label><span data-translation="scan_area.left">From the left (mm)</span><input name="scan_area_left" type="number" min="0" step="any" inputmode="decimal"></label><label><span data-translation="scan_area.top">From the top (mm)</span><input name="scan_area_top" type="number" min="0" step="any" inputmode="decimal"></label></div>
+              <div class="form-row"><label><span data-translation="scan_area.width">Width (mm)</span><input name="scan_area_width" type="number" min="1" step="any" inputmode="decimal"></label><label><span data-translation="scan_area.height">Height (mm)</span><input name="scan_area_height" type="number" min="1" step="any" inputmode="decimal"></label></div>
+              <p id="scan-area-summary" class="field-help"></p><p id="scan-area-error" class="field-help danger-text" role="status" hidden></p>
+              <div class="button-row"><button id="scan-area-full" class="text-button" type="button" data-translation="scan_area.full">Use the whole glass</button><button id="scan-area-profile" class="text-button" type="button" data-translation="scan_area.save_profile">Save these scan settings as a profile</button></div>
+            </fieldset>
             <div class="button-row"><button id="scan-preview-button" class="secondary-button" type="button" data-translation="scan.preview">Quick preview</button><button class="primary-button" type="submit" data-translation="scan.start">Scan document</button></div>
           </form>
           <aside class="workspace-card"><div class="card-heading"><h3 data-translation="scan.multiple_pages">More than one page?</h3><span class="step-number">01 → 02</span></div><p class="body-copy" data-translation="scan_session.introduction">Create a scanning document below, then replace the original and scan each next page. Arrange the pages before saving your PDF.</p><button id="jump-to-scan-sessions" class="text-button" type="button" data-translation="scan_session.open">Open multipage scanning →</button><div class="quiet-divider"></div><h3 data-translation="scan.latest">Latest scan</h3><div id="scan-latest" class="document-preview compact-preview"><p data-translation="scan.no_scan">Your next completed scan will appear here.</p></div></aside>
@@ -180,7 +193,10 @@
       <section id="view-copy" class="control-view" role="tabpanel" aria-labelledby="tab-copy" hidden>
         <div class="view-heading"><div><p class="eyebrow" data-translation="control.paper_to_paper">PAPER TO PAPER</p><h2 data-translation="control.copy">Copy</h2><p data-translation="copy.introduction">Scan an original and print the result in one operation.</p></div></div>
         <div class="capability-note" id="copy-scanner-note"></div>
-        <form id="copy-form" class="workspace-card narrow-card"><div class="form-row"><label><span data-translation="print.copies">Copies</span><input name="copies" type="number" min="1" max="99" value="1" required></label><label><span data-translation="print.colour">Colour</span><select name="colour"><option value="Color" data-translation="print.full_colour">Full colour</option><option value="Mono" data-translation="print.grayscale">Grayscale</option></select></label></div><div class="form-row"><label><span data-translation="scan.resolution">Resolution</span><select name="resolution"><option value="150">150 dpi</option><option value="300" selected>300 dpi</option><option value="600">600 dpi</option></select></label><label><span data-translation="print.quality">Quality</span><select name="quality"><option value="Draft" data-translation="quality.Draft">Draft</option><option value="Normal" selected data-translation="quality.Normal">Normal</option><option value="Fine" data-translation="quality.Fine">Fine</option></select></label></div><label><span data-translation="print.paper">Paper size</span><select name="paper_size"><option value="A4">A4</option><option value="Letter">US Letter</option><option value="A5">A5</option></select></label><p class="field-help" data-translation="copy.help">The printer starts only after a successful scan. The scan is also saved in Documents.</p><button class="primary-button" type="submit" data-translation="copy.review">Review copy job</button></form>
+        <form id="copy-form" class="workspace-card narrow-card"><div class="form-row"><label><span data-translation="print.copies">Copies</span><input name="copies" type="number" min="1" max="99" value="1" required></label><label><span data-translation="print.colour">Colour</span><select name="colour"><option value="Color" data-translation="print.full_colour">Full colour</option><option value="Mono" data-translation="print.grayscale">Grayscale</option></select></label></div><div class="form-row"><label><span data-translation="scan.resolution">Resolution</span><select name="resolution"><option value="150">150 dpi</option><option value="300" selected>300 dpi</option><option value="600">600 dpi</option></select></label><label><span data-translation="print.quality">Quality</span><select name="quality"><option value="Draft" data-translation="quality.Draft">Draft</option><option value="Normal" selected data-translation="quality.Normal">Normal</option><option value="Fine" data-translation="quality.Fine">Fine</option></select></label></div><label><span data-translation="print.paper">Paper size</span><select name="paper_size"><option value="A4">A4</option><option value="Letter">US Letter</option><option value="A5">A5</option></select></label><label class="checkbox-label"><input id="copy-use-scan-area" name="use_scan_area" type="checkbox"><span data-translation="scan_area.copy_selected">Copy only the area selected in Scan</span></label>
+          <p id="copy-scan-area-note" class="field-help" data-translation="scan_area.copy_help">Choose the area in Scan first. Leave this unchecked to copy the normal document area.</p>
+          <label><span data-translation="print.image_fit">Image placement</span><select name="image_fit"><option value="fit" data-translation="print.fit">Fit the whole image</option><option value="fill" data-translation="print.fill">Fill the paper</option></select></label>
+          <p class="field-help" data-translation="copy.help">The printer starts only after a successful scan. The scan is also saved in Documents.</p><button class="primary-button" type="submit" data-translation="copy.review">Review copy job</button></form>
       </section>
 
       <section id="view-profiles" class="control-view" role="tabpanel" aria-labelledby="tab-profiles" hidden>

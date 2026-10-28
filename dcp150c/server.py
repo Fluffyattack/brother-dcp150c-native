@@ -35,6 +35,7 @@ ASSETS = {
     "/assets/control-center.js": ("control-center.js", "text/javascript; charset=utf-8"),
     "/assets/control-center.css": ("control-center.css", "text/css; charset=utf-8"),
     "/assets/scan-sessions.js": ("scan-sessions.js", "text/javascript; charset=utf-8"),
+    "/assets/scan-area.js": ("scan-area.js", "text/javascript; charset=utf-8"),
     "/assets/styles.css": ("styles.css", "text/css; charset=utf-8"),
     "/favicon.svg": ("favicon.svg", "image/svg+xml"),
 }
@@ -297,6 +298,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 result = {"job": center.print_document(values, request_key)}
             elif path == "/api/scanner/detect":
                 result = {"job": center.detect_scanner(request_key)}
+            elif path == "/api/scanner/preview":
+                result = {"job": center.preview_scan(values, request_key)}
             elif path == "/api/scan":
                 result = {"job": center.scan(values, request_key)}
             elif path == "/api/scan-sessions":

@@ -71,6 +71,9 @@ class DocumentStorage:
                 CREATE TABLE IF NOT EXISTS profiles (
                     id TEXT PRIMARY KEY, name TEXT NOT NULL, kind TEXT NOT NULL, settings TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS scan_document_metadata (
+                    document_id TEXT PRIMARY KEY, metadata TEXT NOT NULL
+                );
             """)
         self._leases: dict[str, int] = {}
         self._closed = False
@@ -127,17 +130,18 @@ class DocumentStorage:
                 "keep": bool(row["keep"]), "expires_at": None if row["keep"] else utc_time(row["expires_at"]),
                 "kind": "pdf" if row["media_type"] == "application/pdf" else "image",
                 "has_text": bool(row["text_filename"]),
+                "scan": json.loads(row["scan_metadata"]) if row["scan_metadata"] else None,
                 "has_preview": (self.documents_directory / row["id"] / "preview.png").is_file()}
 
     def list(self) -> list[dict]:
         with self.guard:
-            rows = self.connection.execute("SELECT * FROM documents ORDER BY created_at DESC LIMIT 500").fetchall()
+            rows = self.connection.execute("SELECT documents.*,scan_document_metadata.metadata AS scan_metadata FROM documents LEFT JOIN scan_document_metadata ON documents.id=scan_document_metadata.document_id ORDER BY created_at DESC LIMIT 500").fetchall()
         return [self._record(row) for row in rows]
 
     def _row(self, identifier: str) -> sqlite3.Row:
         if not isinstance(identifier, str) or not IDENTIFIER.fullmatch(identifier):
             raise StorageError("document_not_found", "This document is no longer available.")
-        row = self.connection.execute("SELECT * FROM documents WHERE id=?", (identifier,)).fetchone()
+        row = self.connection.execute("SELECT documents.*,scan_document_metadata.metadata AS scan_metadata FROM documents LEFT JOIN scan_document_metadata ON documents.id=scan_document_metadata.document_id WHERE documents.id=?", (identifier,)).fetchone()
         if row is None:
             raise StorageError("document_not_found", "This document is no longer available.")
         return row
@@ -167,7 +171,8 @@ class DocumentStorage:
                 if not self._leases[identifier]:
                     del self._leases[identifier]
 
-    def add(self, source: Path, name: str, metadata: dict, *, text: Path | None = None) -> dict:
+    def add(self, source: Path, name: str, metadata: dict, *, text: Path | None = None,
+            scan_metadata: dict | None = None) -> dict:
         name = document_name(name)
         media_type = metadata["media_type"]
         extension = {"application/pdf": ".pdf", "image/png": ".png", "image/jpeg": ".jpg"}.get(media_type)
@@ -192,6 +197,9 @@ class DocumentStorage:
                     self.connection.execute("INSERT INTO documents VALUES (?,?,?,?,?,?,?,?,?,?)", (
                         identifier, name, filename, media_type, metadata["page_count"], source.stat().st_size,
                         now, 0, now + self.settings()["retention_hours"] * 3600, "text.txt" if text else None))
+                    if scan_metadata is not None:
+                        self.connection.execute("INSERT INTO scan_document_metadata VALUES (?,?)", (
+                            identifier, json.dumps(scan_metadata, allow_nan=False)))
             except BaseException:
                 shutil.rmtree(destination, ignore_errors=True)
                 raise
@@ -218,6 +226,7 @@ class DocumentStorage:
             # Commit metadata first. After a crash, unreferenced files are cleaned
             # by prune; a missing directory can never leave an undeletable row.
             with self.connection:
+                self.connection.execute("DELETE FROM scan_document_metadata WHERE document_id=?", (identifier,))
                 self.connection.execute("DELETE FROM documents WHERE id=?", (identifier,))
             try:
                 shutil.rmtree(self.documents_directory / identifier)
@@ -231,6 +240,8 @@ class DocumentStorage:
                 if not self._in_use(row["id"]):
                     self.delete(row["id"])
             known = {row["id"] for row in self.connection.execute("SELECT id FROM documents")}
+            with self.connection:
+                self.connection.execute("DELETE FROM scan_document_metadata WHERE document_id NOT IN (SELECT id FROM documents)")
             for directory in self.documents_directory.iterdir():
                 if IDENTIFIER.fullmatch(directory.name) and directory.name not in known and directory.is_dir() and not directory.is_symlink():
                     try:

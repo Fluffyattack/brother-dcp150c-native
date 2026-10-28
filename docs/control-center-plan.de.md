@@ -25,6 +25,7 @@ Für unser Projekt dienen die Funktionen als Vorbild. Die Bedienung und Gestaltu
 | Webaktionen und Dokumentablage | Geschützte Uploads, Vorschau, Bearbeitung, Zusammenführen, Drucken, Aufbewahrung und Profile implementiert |
 | Texterkennung | Lokale neuronale Tesseract-Erkennung; mehrseitige durchsuchbare PDFs und Textdateien mit echten Softwaretests geprüft |
 | Mehrseitiges Scannen | Gespeicherter Ablauf mit weiterer Seite, Seitenfolge, Drehung, Zuschnitt, Browser-Wiederaufnahme und PDF-Abschluss; gegen den isolierten virtuellen Scanner geprüft |
+| Vorschau und Scanbereich | Gesamtes gemeldetes Glas als Vorschau, Auswahl per Ziehen oder Millimetereingabe, Übernahme in Profile und mehrseitige Dokumente; ausdrücklich wählbar beim Kopieren |
 
 Die aktuellen Druckergebnisse und ihre Einstellungen stehen im [Hardwaretest](../README.md#hardware-validation). Der bytegleiche Vergleich bestätigt die verglichenen Druckdaten. Einschalten, USB-Wiederverbindung und echte Scannerbewegungen sind gesonderte Gerätetests.
 
