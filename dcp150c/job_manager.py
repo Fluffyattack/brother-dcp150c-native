@@ -131,7 +131,7 @@ class JobManager:
         self._update(identifier, "cancelled", "job_cancelled")
 
     def remember_result(self, identifier: str, result: dict) -> None:
-        """Persist a held CUPS job before it is released to the physical queue."""
+        """Save an existing document or held print reference before later work."""
         with self.storage.guard, self.storage.connection:
             row = self.storage.connection.execute("SELECT result FROM jobs WHERE id=?", (identifier,)).fetchone()
             previous = json.loads(row["result"]) if row else {}
@@ -145,7 +145,7 @@ class JobManager:
             if result is not None:
                 previous.update(result)
             # State and its result are one commit. remember_result deliberately
-            # has its own commit only when saving a held CUPS reference before release.
+            # has its own commit when preserving an already-created resource.
             self.storage.connection.execute("UPDATE jobs SET state=?,message_code=?,updated_at=?,result=? WHERE id=?", (
                 state, code, time.time(), json.dumps(previous), identifier))
 

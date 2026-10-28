@@ -38,6 +38,7 @@ ASSETS = {
     "/assets/scan-sessions.js": ("scan-sessions.js", "text/javascript; charset=utf-8"),
     "/assets/scan-area.js": ("scan-area.js", "text/javascript; charset=utf-8"),
     "/assets/backups.js": ("backups.js", "text/javascript; charset=utf-8"),
+    "/assets/media.js": ("media.js", "text/javascript; charset=utf-8"),
     "/assets/styles.css": ("styles.css", "text/css; charset=utf-8"),
     "/favicon.svg": ("favicon.svg", "image/svg+xml"),
 }
@@ -307,6 +308,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 result = {"job": center.detect_scanner(request_key)}
             elif path == "/api/scanner/preview":
                 result = {"job": center.preview_scan(values, request_key)}
+            elif path == "/api/media/probe":
+                result = {"job": center.detect_media(values, request_key)}
+            elif len(parts) == 4 and parts[:3] == ["api", "media", "directories"]:
+                result = {"job": center.browse_media(parts[3], values, request_key)}
+            elif len(parts) == 5 and parts[:3] == ["api", "media", "files"] and parts[4] == "import":
+                result = {"job": center.import_media_file(parts[3], values, request_key)}
             elif path == "/api/scan":
                 result = {"job": center.scan(values, request_key)}
             elif path == "/api/scan-sessions":

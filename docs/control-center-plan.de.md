@@ -93,12 +93,12 @@ Profile werden vor der Verwendung gegen die verfügbaren Fähigkeiten geprüft. 
 | Funktion | Geplanter Umfang | Voraussetzung |
 | --- | --- | --- |
 | Scan-Taste am Gerät | Ein bewusst zugeordnetes Profil auslösen | Geräteereignis zuverlässig erkennen und gegen Doppelstarts absichern |
-| Speicherkarte und PhotoCapture | Bilder auf eingelegten Medien ansehen, herunterladen und als neuen Druckauftrag übernehmen | Datenträger des Druckers eindeutig erkennen; zuerst lesender Zugriff |
+| Speicherkarte und PhotoCapture | FAT12/16/32-Leser und JPEG-/PNG-/PDF-Import mit Dokumentvorschau und Druckformular implementiert | Software mit regulären Dateisystemabbildern geprüft; echte Datenträgerbereitstellung des Druckers noch am Gerät bestätigen |
 | Wartung | Anleitung und Gerätestatus bündeln; später unterstützte Prüf- und Wartungsaktionen | Gerätebefehle und Auswirkungen klären und am Gerät testen |
 | Historie | Eigene Aufträge mit Status und Datum implementiert; offene Vorgänge bleiben sichtbar | Jüngste 50 Einträge in der Anzeige; Kennungen und Zustandsmetadaten dauerhaft im privaten Zustandsspeicher, getrennt von Dokumentdateien |
 | Weitergabe als Netzwerkscanner | Nutzung durch geeignete Scannerprogramme prüfen | Native Scanner-Anbindung zuerst zuverlässig herstellen |
 
-Der DCP-150C unterstützt PhotoCapture für die vorgesehenen Karten und USB-Medien. Die Webintegration ist ein eigener Arbeitsschritt; das Vorhandensein des Kartenlesers bedeutet noch keinen fertigen Dateizugriff aus dem Dashboard. [Brother Geräte-Handbuch, PhotoCapture-Kapitel](https://download.brother.com/welcome/doc002242/cv_dcp135_ukeng_usr.pdf#page=35)
+Der DCP-150C unterstützt PhotoCapture für die vorgesehenen Karten und USB-Medien. Der Browser-Leser öffnet nur zu diesem Druckermodell gehörende Blockgeräte und verändert die Karte nicht. Die mit Abbildern geprüfte Integration belegt noch nicht den USB-Pfad des physischen Kartenlesers. [Brother Geräte-Handbuch, PhotoCapture-Kapitel](https://download.brother.com/welcome/doc002242/cv_dcp135_ukeng_usr.pdf#page=35)
 
 ## Scanner-Anbindung als erster technischer Meilenstein
 

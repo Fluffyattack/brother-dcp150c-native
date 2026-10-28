@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install cross compiler
-        run: sudo apt-get update && sudo apt-get install -y gcc-arm-linux-gnueabihf qemu-user python3-pil python3-pypdf poppler-utils tesseract-ocr tesseract-ocr-deu tesseract-ocr-eng fonts-dejavu-core sane-utils
+        run: sudo apt-get update && sudo apt-get install -y gcc-arm-linux-gnueabihf qemu-user python3-pil python3-pypdf poppler-utils tesseract-ocr tesseract-ocr-deu tesseract-ocr-eng fonts-dejavu-core sane-utils dosfstools mtools
       - name: Build host tools
         run: make
       - name: Build ARMv6 tools
@@ -58,6 +58,7 @@ jobs:
           node --check dcp150c/static/scan-sessions.js
           node --check dcp150c/static/scan-area.js
           node --check dcp150c/static/backups.js
+          node --check dcp150c/static/media.js
       - name: Verify document workflows and protected browser actions offline
         run: |
           python3 -m unittest discover -s verification -p 'test_*.py' -v

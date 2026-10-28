@@ -294,6 +294,21 @@ systemd-tmpfiles --create /usr/lib/tmpfiles.d/dcp150c-native.conf
 udevadm control --reload-rules
 udevadm trigger --subsystem-match=usb --attr-match=idVendor=04f9 --attr-match=idProduct=01cf
 udevadm trigger --subsystem-match=usbmisc --sysname-match='lp*'
+# Refresh card-node read permissions only beneath this printer's USB device.
+python3 - <<'PY'
+from pathlib import Path
+import subprocess
+
+for device in Path('/sys/bus/usb/devices').iterdir():
+    try:
+        matches = ((device / 'idVendor').read_text().strip() == '04f9'
+                   and (device / 'idProduct').read_text().strip() == '01cf')
+    except OSError:
+        continue
+    if matches:
+        subprocess.run(['udevadm', 'trigger', '--subsystem-match=block',
+                        '--parent-match=' + str(device.resolve())], check=True)
+PY
 if [ "$configure_queue" -eq 1 ]; then
     if [ "$reuse_queue" -eq 0 ]; then
         lpadmin -p "$queue" -E -v "dcp150c:$device_uri" -P /usr/share/ppd/dcp150c-native/dcp150c-native.ppd -o printer-is-shared=false

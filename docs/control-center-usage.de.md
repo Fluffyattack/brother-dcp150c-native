@@ -46,6 +46,16 @@ Ein Dokument lässt sich herunterladen, umbenennen, behalten oder löschen. Unte
 
 Dokumente werden standardmäßig nach 24 Stunden gelöscht. **Behalten** schützt eine Datei vor dieser automatischen Löschung. In den Einstellungen kannst du Löschfrist und Speicherlimit ändern. Herunterladen oder Teilen verwendet die normale Funktion deines Browsers beziehungsweise Handys; die Steuerzentrale verschickt selbst keine E-Mails.
 
+## Dateien von der Speicherkarte
+
+Öffne **Speicherkarte** und wähle **Speicherkarte prüfen**. Erst diese Auswahl sucht nach einem Datenträger des DCP-150C. FAT12, FAT16 und FAT32 werden lesend unterstützt. Andere angeschlossene Laufwerke werden nicht angeboten. Die tatsächliche Bereitstellung durch den Kartenleser muss noch am eingeschalteten Gerät geprüft werden.
+
+Öffne den gewünschten Ordner und wähle bei einer JPEG-, PNG- oder PDF-Datei **In Dokumente übernehmen**. Pro Datei gelten dieselben Grenzen wie bei Uploads: 20 MiB und 25 Seiten. Die Datei erscheint anschließend mit Vorschau unter **Dokumente**; dort kannst du sie bearbeiten, herunterladen, erkennen lassen oder ausdrücklich drucken. **Druckeinstellungen** öffnet lediglich das Druckformular.
+
+Die Karte wird nicht eingehängt und ausschließlich zum Lesen geöffnet. Ein bereits beschreibbar eingebundener Datenträger wird abgewiesen. Lass die Karte während des Imports eingelegt und verwende sie in dieser Zeit nicht für andere Schreibvorgänge. **Speicherkarte prüfen** verwirft die bisherige Auswahl; nach einem Kartenwechsel wählst du den Ordner erneut. Bekannte Änderungen an Datenträger und Dateiverzeichnis brechen einen laufenden Import ab. Gleichzeitige Änderungen allein am Dateiinhalt lassen sich ohne eine Sperre des Druckers nicht zuverlässig erkennen.
+
+Ein Abbruch vor dem Speichern übernimmt keine Datei. Ist das Original bereits gespeichert und nur die Vorschau betroffen, bleibt die Datei über das Auftragsergebnis erreichbar. Das Prüfen und Importieren startet keinen Druck-, Scan- oder Reinigungsvorgang. Bei einem blockierenden Lesezugriff des Betriebssystems kann ein Abbruch erst nach dessen Rückkehr wirksam werden.
+
 ## Profile und Einstellungen
 
 Profile merken benannte Einstellungen für Drucken, Scannen, OCR oder Kopieren. Das Anwenden eines Profils füllt das entsprechende Formular aus und startet keine Geräteaktion. Ein Profil ersetzt nicht die Prüfung, ob eine Einstellung am verbundenen Gerät verfügbar ist.
@@ -70,4 +80,4 @@ Unter **Einstellungen → Wartung am Drucker** findest du modellbezogene Hinweis
 
 ## Noch an das Gerät gebunden
 
-Ein bytegleicher Druckdatenvergleich bestätigt die verglichenen Druckdaten. Tatsächliche Scanneraufnahme, Gerätetasten, Kartenleser und Wartungsbefehle werden jeweils gesondert geprüft. Diese Bereiche erhalten erst nach passenden Nachweisen eine aktive Bedienung. Es werden keine Druck-, Scan- oder Reinigungsvorgänge beim Öffnen der Seite gestartet.
+Ein bytegleicher Druckdatenvergleich bestätigt die verglichenen Druckdaten. Tatsächliche Scanneraufnahme, Gerätetasten, Kartenleser und Wartungsbefehle werden jeweils gesondert geprüft. Die Software des Kartenimports ist mit echten Dateisystemabbildern geprüft; das ersetzt keine Prüfung des physischen Kartenlesers. Es werden keine Druck-, Scan- oder Reinigungsvorgänge beim Öffnen der Seite gestartet.

@@ -14,7 +14,7 @@ let confirmationAction = null;
 let lastControlCollections = {};
 let lastControlFeedback = null;
 let jobHistoryExpanded = false;
-const controlViews = ["overview", "print", "scan", "documents", "copy", "profiles", "settings"];
+const controlViews = ["overview", "print", "scan", "documents", "media", "copy", "profiles", "settings"];
 const pendingRequestStorageKey = "dcp150c.control-center.pending-requests";
 const pendingControlRequests = readPendingControlRequests();
 const terminalJobStates = ["succeeded", "failed", "cancelled", "interrupted", "submitted"];
@@ -73,8 +73,10 @@ function savePendingControlRequests() {
 
 function needsDurableRequestKey(method, path, body) {
   if (method !== "POST" || body instanceof Blob) return false;
-  return ["/api/print", "/api/copy", "/api/scan", "/api/scanner/detect", "/api/scanner/preview", "/api/documents/merge", "/api/backups"].includes(path)
+  return ["/api/print", "/api/copy", "/api/scan", "/api/scanner/detect", "/api/scanner/preview", "/api/documents/merge", "/api/backups", "/api/media/probe"].includes(path)
     || /^\/api\/documents\/[a-zA-Z0-9_-]+\/(?:ocr|transform)$/.test(path)
+    || /^\/api\/media\/directories\/[a-f0-9]{32}$/.test(path)
+    || /^\/api\/media\/files\/[a-f0-9]{32}\/import$/.test(path)
     || path === "/api/scan-sessions" || /^\/api\/scan-sessions\/[a-f0-9]{32}\/(?:pages|finish)$/.test(path);
 }
 
@@ -234,6 +236,7 @@ function clearPrivateViews() {
   if (typeof clearScanSessionViews === "function") clearScanSessionViews();
   if (typeof clearScanAreaViews === "function") clearScanAreaViews();
   if (typeof clearBackupViews === "function") clearBackupViews();
+  if (typeof clearMediaReaderViews === "function") clearMediaReaderViews();
   showControlView("overview");
 }
 
@@ -698,6 +701,7 @@ function renderControlCenter() {
   if (typeof renderScanArea === "function") renderScanArea();
   if (typeof renderScanSessions === "function") renderScanSessions();
   if (typeof renderBackups === "function" && changed("backups", controlState.backups)) renderBackups();
+  if (typeof renderMediaReader === "function") renderMediaReader();
   const latestScanJob = controlState.jobs.find((job) => ["scan", "copy", "scan_page", "scan_preview"].includes(job.kind) && job.result_document_id);
   const latestScan = latestScanJob ? controlState.documents.find((record) => record.id === latestScanJob.result_document_id) : null;
   const latestContainer = findElementById("scan-latest");

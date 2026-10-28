@@ -8,13 +8,14 @@
   <title data-translation="page.title">Brother DCP-150C · Printer status</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/assets/styles.css?v=3">
-  <link rel="stylesheet" href="/assets/control-center.css?v=5">
-  <script src="/assets/translations.js?v=7" defer></script>
+  <link rel="stylesheet" href="/assets/control-center.css?v=6">
+  <script src="/assets/translations.js?v=8" defer></script>
   <script src="/assets/app.js?v=3" defer></script>
-  <script src="/assets/control-center.js?v=5" defer></script>
+  <script src="/assets/control-center.js?v=6" defer></script>
   <script src="/assets/scan-sessions.js?v=2" defer></script>
   <script src="/assets/scan-area.js?v=1" defer></script>
   <script src="/assets/backups.js?v=1" defer></script>
+  <script src="/assets/media.js?v=1" defer></script>
 </head>
 <body>
   <div class="shell">
@@ -55,9 +56,10 @@
         <button id="tab-print" type="button" role="tab" aria-selected="false" aria-controls="view-print" tabindex="-1" data-view="print"><span class="tab-number" aria-hidden="true">02</span><span data-translation="control.print">Print</span></button>
         <button id="tab-scan" type="button" role="tab" aria-selected="false" aria-controls="view-scan" tabindex="-1" data-view="scan"><span class="tab-number" aria-hidden="true">03</span><span data-translation="control.scan">Scan</span></button>
         <button id="tab-documents" type="button" role="tab" aria-selected="false" aria-controls="view-documents" tabindex="-1" data-view="documents"><span class="tab-number" aria-hidden="true">04</span><span data-translation="control.documents">Documents</span></button>
-        <button id="tab-copy" type="button" role="tab" aria-selected="false" aria-controls="view-copy" tabindex="-1" data-view="copy"><span class="tab-number" aria-hidden="true">05</span><span data-translation="control.copy">Copy</span></button>
-        <button id="tab-profiles" type="button" role="tab" aria-selected="false" aria-controls="view-profiles" tabindex="-1" data-view="profiles"><span class="tab-number" aria-hidden="true">06</span><span data-translation="control.profiles">Profiles</span></button>
-        <button id="tab-settings" type="button" role="tab" aria-selected="false" aria-controls="view-settings" tabindex="-1" data-view="settings"><span class="tab-number" aria-hidden="true">07</span><span data-translation="control.settings">Settings</span></button>
+        <button id="tab-media" type="button" role="tab" aria-selected="false" aria-controls="view-media" tabindex="-1" data-view="media"><span class="tab-number" aria-hidden="true">05</span><span data-translation="control.media">Memory card</span></button>
+        <button id="tab-copy" type="button" role="tab" aria-selected="false" aria-controls="view-copy" tabindex="-1" data-view="copy"><span class="tab-number" aria-hidden="true">06</span><span data-translation="control.copy">Copy</span></button>
+        <button id="tab-profiles" type="button" role="tab" aria-selected="false" aria-controls="view-profiles" tabindex="-1" data-view="profiles"><span class="tab-number" aria-hidden="true">07</span><span data-translation="control.profiles">Profiles</span></button>
+        <button id="tab-settings" type="button" role="tab" aria-selected="false" aria-controls="view-settings" tabindex="-1" data-view="settings"><span class="tab-number" aria-hidden="true">08</span><span data-translation="control.settings">Settings</span></button>
       </nav>
       <section id="access-panel" class="access-panel" hidden aria-labelledby="access-heading"><div class="access-copy"><span class="access-symbol" aria-hidden="true">⌑</span><div><h2 id="access-heading" data-translation="auth.heading">Your documents. Your access.</h2><p id="access-description" data-translation="auth.description">Sign in to upload, print and manage documents. Printer status remains visible below.</p></div></div><form id="login-form"><label class="sr-only" for="access-password" data-translation="auth.password">Control Center password</label><input id="access-password" type="password" name="password" autocomplete="current-password" required data-translation-placeholder="auth.password" placeholder="Control Center password"><button class="primary-button" type="submit" data-translation="auth.login">Sign in</button></form><p id="login-message" class="field-help" role="status"></p></section>
       <p id="control-feedback" class="control-feedback" role="status" aria-live="polite" hidden></p>
@@ -189,6 +191,21 @@
           <details class="document-tools" open><summary data-translation="ocr.title">Recognise text</summary><p class="field-help" data-translation="ocr.help">Create a searchable PDF and a text file with local text recognition. Your original remains available.</p><form id="ocr-form"><label><span data-translation="ocr.language">Document language</span><select name="languages"><option value="deu+eng" data-translation="ocr.german_english">German and English</option><option value="deu" data-translation="ocr.german">German</option><option value="eng" data-translation="ocr.english">English</option></select></label><button class="secondary-button" type="submit" data-translation="ocr.start">Recognise text</button><a id="download-text" class="text-button" data-translation="ocr.download_text" download hidden>Download recognised text</a></form></details>
           <button id="delete-document" class="text-button danger-text" type="button" data-translation="documents.delete">Delete document</button>
         </aside></div>
+      </section>
+
+      <section id="view-media" class="control-view" role="tabpanel" aria-labelledby="tab-media" hidden>
+        <div class="view-heading"><div><p class="eyebrow" data-translation="memory_card.eyebrow">FILES FROM YOUR CARD</p><h2 data-translation="control.media">Memory card</h2><p data-translation="memory_card.introduction">Browse a memory card through your printer. Copy selected JPEG, PNG or PDF files into Documents to preview, download or print them.</p></div><button id="media-probe" class="primary-button" type="button" data-translation="memory_card.check">Check memory card</button></div>
+        <p id="media-status" class="capability-note" role="status" aria-live="polite"></p>
+        <p id="media-hardware-note" class="field-help" hidden data-translation="memory_card.hardware_pending">The connection still needs to be checked with a physical memory card in the printer.</p>
+        <aside id="media-import-result" class="workspace-card media-import-result" aria-live="polite" hidden></aside>
+        <section id="media-workspace" class="workspace-card media-workspace" hidden aria-labelledby="media-directory-name">
+          <div class="card-heading"><div class="media-directory-heading"><h3 id="media-directory-name" tabindex="-1"></h3><p id="media-item-count" class="field-help"></p></div><span class="media-read-only-badge" data-translation="memory_card.read_only">Read only</span></div>
+          <div class="button-row media-navigation"><button id="media-root" class="secondary-button" type="button" data-translation="memory_card.root">Card's top folder</button><button id="media-parent" class="secondary-button" type="button" data-translation="memory_card.parent">Up one folder</button></div>
+          <p class="field-help" data-translation="memory_card.copy_help">Card contents stay unchanged. Importing creates a separate file in your private document storage. Printing always requires its own confirmation.</p>
+          <div id="media-entry-list" class="document-list media-entry-list" role="list"></div>
+          <div class="media-pagination"><button id="media-previous-page" class="secondary-button" type="button" data-translation="memory_card.previous">Previous files</button><p id="media-page-note" class="field-help" role="status"></p><button id="media-next-page" class="secondary-button" type="button" data-translation="memory_card.next">More files</button></div>
+          <p class="field-help media-import-help" data-translation="memory_card.import_help">Choose Import to Documents, then open the completed job's result. The document view provides preview, download and print settings. The same document storage limits and retention period apply.</p>
+        </section>
       </section>
 
       <section id="view-copy" class="control-view" role="tabpanel" aria-labelledby="tab-copy" hidden>

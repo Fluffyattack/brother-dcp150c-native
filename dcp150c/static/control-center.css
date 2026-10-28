@@ -148,3 +148,25 @@ button[aria-busy="true"] { opacity:.6; cursor:progress }
 /* The backup selection and restore form share the existing responsive grid. */
 .backup-tools { margin-bottom: 1.25rem; }
 .backup-tools input[type="file"] { width: 100%; max-width: 100%; }
+.media-directory-heading { min-width:0 }
+.media-directory-heading h3 { margin-bottom:7px }
+.media-directory-heading .field-help { margin:0 0 15px }
+.media-read-only-badge { color:#9ed8c6; background:#14302b; border:1px solid #2c5c4c; border-radius:6px; padding:5px 8px; font-size:11px; white-space:nowrap }
+.media-navigation { margin-bottom:12px }
+.media-entry-information { flex:1; min-width:0 }
+.media-entry-note { display:block; color:#b0a1a0; font-size:11px; line-height:1.5; margin-top:7px }
+.media-file-symbol { min-width:42px; flex-basis:42px }
+.media-entry>.secondary-button { flex-shrink:0; max-width:45%; text-align:center; overflow-wrap:anywhere }
+.media-pagination { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin-top:18px }
+.media-pagination .field-help { margin:0; text-align:center }
+.media-import-help { margin-bottom:0 }
+.media-import-result { margin-bottom:20px }
+.media-import-result .media-result-name { overflow-wrap:anywhere; margin-bottom:16px }
+.media-import-result .field-help { margin-bottom:0 }
+@media(max-width:500px) {
+  .media-entry { flex-wrap:wrap; gap:10px }
+  .media-entry-information { flex-basis:calc(100% - 60px) }
+  .media-entry>.secondary-button { max-width:calc(100% - 52px); margin-inline-start:52px }
+  .media-pagination .field-help { flex-basis:100%; order:3 }
+  .media-read-only-badge { white-space:normal; text-align:center }
+}

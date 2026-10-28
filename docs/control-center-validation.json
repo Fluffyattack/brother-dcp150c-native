@@ -1,8 +1,8 @@
 {
   "date": "2026-10-28",
-  "scope": "Offline Control Center, document, OCR and native scanner software verification",
+  "scope": "Offline Control Center, document, OCR, memory-card and native scanner software verification",
   "python_workflows": {
-    "tests": 75,
+    "tests": 99,
     "hardware_submissions": false,
     "includes": [
       "Authenticated HTTP requests and protected downloads",
@@ -21,11 +21,15 @@
       "Prepared archive expiry, fresh installation restore and repeated-response protection",
       "Unresolved jobs remain visible outside the fifty-entry recent-history window",
       "Delayed HTTP retries resolve after input deletion and dependency unavailability",
-      "Atomic job status/result rollback and cancellation during scheduler refresh"
+      "Atomic job status/result rollback and cancellation during scheduler refresh",
+      "Read-only real FAT12/16/32 images, Unicode folders, corrupt allocation and source changes",
+      "Mount and superblock writability, model-specific USB ancestry and device-node permissions",
+      "Protected PNG, JPEG and PDF card import with real preview and original download",
+      "Card removal after an accepted request, before-commit cancellation and saved-original recovery"
     ]
   },
   "browser_request_recovery": {
-    "tests": 16,
+    "tests": 19,
     "includes": [
       "Lost response and page reload reuse the accepted operation",
       "Explicit new operation after a known response gets a new identifier",
@@ -37,7 +41,8 @@
       "Feedback and paper choices update with the selected language",
       "Lost new-document and next-page responses reuse their workflow identifiers",
       "Saved scanner settings restore after delayed discovery without overwriting subsequent choices",
-      "Lost backup export and streamed restore responses reuse their operation identifiers without storing raw ZIP data"
+      "Lost backup export and streamed restore responses reuse their operation identifiers without storing raw ZIP data",
+      "Lost card-check, folder-list and import responses survive reload without duplicate work"
     ]
   },
   "existing_print_installation_checks": 14,
@@ -122,7 +127,8 @@
     "Acquire and inspect an image from the physical DCP-150C",
     "Cancel a physical scan and confirm device recovery",
     "Switch between scanning, printing and ink polling",
-    "Confirm additional physical print settings and USB reconnection"
+    "Confirm additional physical print settings and USB reconnection",
+    "Enumerate and read a physical memory card through the printer-owned block device"
   ],
   "physical_prints_or_scans_during_this_work": 0,
   "document_backup": {
@@ -158,6 +164,37 @@
       "Cancellation wins over an in-flight stale status read",
       "Actual protected HTTP retries after input deletion and software unavailability",
       "State and result commit or roll back together"
+    ]
+  },
+  "memory_card": {
+    "filesystem_checks": 18,
+    "http_workflow_checks": 6,
+    "physical_card_reader_verified": false,
+    "source_access": "read-only block device, exact printer USB ancestry, no mounts or privileged helper",
+    "filesystems": [
+      "FAT12",
+      "FAT16",
+      "FAT32"
+    ],
+    "import_formats": [
+      "JPEG",
+      "PNG",
+      "PDF"
+    ],
+    "file_limit_bytes": 20971520,
+    "page_limit": 25,
+    "limits": [
+      "Kernel-blocked reads can delay cancellation",
+      "Concurrent content-only writes cannot be detected reliably without a device-side writer lock"
+    ],
+    "real_browser_checks": 11,
+    "includes": [
+      "No card I/O on startup, sign-in, polling or reload",
+      "Actual Unicode folder navigation and pagination in a folder with 217 files",
+      "Real JPEG, PNG and two-page PDF import, preview and byte-identical download",
+      "Print-settings handoff without device submission",
+      "German and English at 320, 360 and 1440 pixels",
+      "Private views cleared on logout; no JavaScript errors; unchanged source image"
     ]
   }
 }

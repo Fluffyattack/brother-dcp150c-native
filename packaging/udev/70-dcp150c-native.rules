@@ -1,3 +1,6 @@
 # Brother DCP-150C. Match this model only; the dashboard needs no root account.
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="04f9", ATTR{idProduct}=="01cf", GROUP="dcp150c", MODE="0660"
 SUBSYSTEM=="usbmisc", KERNEL=="lp[0-9]*", ATTRS{idVendor}=="04f9", ATTRS{idProduct}=="01cf", GROUP="dcp150c", MODE="0660"
+# Card access is read-only for the service group and restricted to this model.
+# The application validates USB ancestry and opens block nodes with O_RDONLY.
+SUBSYSTEM=="block", ATTRS{idVendor}=="04f9", ATTRS{idProduct}=="01cf", GROUP="dcp150c", MODE="0640"

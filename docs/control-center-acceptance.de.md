@@ -17,7 +17,8 @@ Stand: 28. Oktober 2026. Das Projekt bleibt eine Vorschau. Der bestätigte physi
 | Sicherung | Ausgewählte Originale, Text und Metadaten; tatsächlicher ZIP-Download und Wiederherstellung über HTTPS; Fehler und Abbruch übernehmen keine Teilmenge | Kein Gerät für gespeicherte Dateien nötig |
 | Historie | Lokalisierte Zeitangaben, sichtbare offene Vorgänge und jüngste 50 Einträge; dauerhafte Wiedererkennung auch nach dem Löschen von Eingabedateien | Tatsächlichen Abbruch und die Erholung des Geräts bestätigen |
 | Wartung | Hinweise zum offiziellen Modellhandbuch; dieser Bereich sendet keine Gerätebefehle | Unterstützte Befehle und Auswirkungen gesondert prüfen, bevor sie aktiviert werden |
-| Scan-Taste und Speicherkarte | Im [Funktionsplan](control-center-plan.de.md) ausdrücklich erfasst; keine ungeprüfte Bedienung angeboten | Geräteereignisse beziehungsweise Datenträger eindeutig erkennen; Kartenzugriff zunächst lesend prüfen |
+| Speicherkarte | Echter FAT12/16/32-Lesezugriff auf isolierte Abbilder, Unicode-Ordner, Seitenwechsel, Medienwechsel und geschützter JPEG-/PNG-/PDF-Import mit Vorschau und Download | Den unter USB `04f9:01cf` bereitgestellten Datenträger einer echten Karte erkennen und lesend prüfen; nicht jeder USB-Datenträger wird angenommen |
+| Scan-Taste | Im [Funktionsplan](control-center-plan.de.md) erfasst; noch keine aktive Tastenbelegung | Geräteereignisse zuverlässig erkennen, ein Profil bewusst zuordnen und Doppelstarts ausschließen |
 | Weitergabe als Netzwerkscanner | Als spätere Prüfung erfasst; Browserzugriff ist bereits vorgesehen | Zuerst echte Scanneraufnahme abnehmen, danach Nutzung durch andere Scannerprogramme prüfen |
 
 Die [Softwareprüfungen](control-center-validation.json) nennen ihren jeweiligen Umfang. Automatisierte Scannerprüfungen verwenden ausdrücklich den isolierten SANE-Testtreiber. Sie liefern keinen Nachweis einer Aufnahme am physischen DCP-150C.

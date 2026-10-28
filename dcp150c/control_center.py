@@ -14,6 +14,7 @@ from .access_control import AccessControl
 from .backup_service import BackupService
 from .document_storage import DocumentStorage, StorageError, document_name
 from .job_manager import JobManager
+from .media_reader import MediaReaderService
 from .scanner_service import ScannerService
 from .scan_sessions import ScanSessions
 
@@ -27,6 +28,9 @@ class ControlCenter:
         self.storage = DocumentStorage(state_directory)
         self.jobs = JobManager(self.storage)
         self.scanner = ScannerService(lock_path=lock_path, device=scanner_device)
+        self.media = MediaReaderService(lock_path=lock_path)
+        self._media_guard = threading.RLock()
+        self._media_listing = None
         self.processor = self.printing = self.ocr = None
         self._capabilities = {"documents": {"available": False}, "print": {"available": False},
                               "ocr": {"available": False, "languages": [], "engine": "tesseract"}}
@@ -65,12 +69,78 @@ class ControlCenter:
 
     def snapshot(self) -> dict:
         capabilities = copy.deepcopy(self._capabilities)
-        capabilities.update(scanner=self.scanner.capabilities(), authentication_configured=self.access.configured)
+        capabilities.update(scanner=self.scanner.capabilities(), media=self.media.capabilities(),
+                            authentication_configured=self.access.configured)
+        with self._media_guard:
+            media_listing = copy.deepcopy(self._media_listing)
         return {"capabilities": capabilities, "documents": self.storage.list(), "jobs": self.jobs.list(),
                 "profiles": self.storage.profiles(), "settings": self.storage.settings(),
                 "scan_sessions": self.scan_sessions.list(), "backups": self.backups.list(),
                 "backup_upload_limit": self.backups.maximum_upload_bytes,
-                "job_history_policy": self.jobs.history_policy()}
+                "job_history_policy": self.jobs.history_policy(), "media_listing": media_listing}
+
+    def _remember_media_listing(self, listing: dict | None) -> None:
+        with self._media_guard:
+            self._media_listing = copy.deepcopy(listing)
+
+    def detect_media(self, values: dict, key: str | None) -> dict:
+        if not isinstance(values, dict) or values:
+            raise StorageError("invalid_settings", "Check the memory card without additional settings.")
+        def action(event, _identifier):
+            self._remember_media_listing(None)
+            capabilities = self.media.probe(cancel_event=event)
+            if capabilities.get("available"):
+                listing = self.media.list_directory(capabilities["root_directory_id"], cancel_event=event, offset=0, limit=200)
+                self._remember_media_listing(listing)
+            return {"media": capabilities}
+        return self.jobs.submit("media_probe", {}, action, key)
+
+    def browse_media(self, identifier: str, values: dict, key: str | None) -> dict:
+        from .document_storage import IDENTIFIER
+        if (not isinstance(identifier, str) or not IDENTIFIER.fullmatch(identifier)
+                or not isinstance(values, dict) or set(values) - {"offset", "limit"}
+                or type(values.get("offset", 0)) is not int or not 0 <= values.get("offset", 0) <= 20000
+                or type(values.get("limit", 200)) is not int or not 1 <= values.get("limit", 200) <= 200):
+            raise StorageError("invalid_settings", "Choose a folder from the checked memory card.")
+        parameters = {"directory_id": identifier, "offset": values.get("offset", 0), "limit": values.get("limit", 200)}
+        def action(event, _identifier):
+            try:
+                listing = self.media.list_directory(identifier, cancel_event=event,
+                    offset=parameters["offset"], limit=parameters["limit"])
+                self._remember_media_listing(listing)
+                return {"directory_id": identifier}
+            except BaseException:
+                if not self.media.capabilities().get("available"):
+                    self._remember_media_listing(None)
+                raise
+        return self.jobs.submit("media_browse", parameters, action, key)
+
+    def import_media_file(self, identifier: str, values: dict, key: str | None) -> dict:
+        from .document_storage import IDENTIFIER
+        if (not isinstance(identifier, str) or not IDENTIFIER.fullmatch(identifier)
+                or not isinstance(values, dict) or values):
+            raise StorageError("invalid_settings", "Choose a file from the checked memory card.")
+        def action(event, job_identifier):
+            try:
+                with self.storage.workspace() as directory:
+                    source = directory / "memory-card-file"
+                    copied = self.media.copy_file(identifier, source, event, maximum_bytes=20 * 1024 * 1024)
+                    self.require_documents()
+                    metadata = self.processor.inspect(source)
+                    if event.is_set():
+                        raise StorageError("job_cancelled", "The memory-card import was cancelled.")
+                    document = self.storage.add(source, copied["name"], metadata)
+                    # A later preview failure must not hide the saved original
+                    # or make a repeated browser request import it twice.
+                    self.jobs.remember_result(job_identifier, {"document_id": document["id"]})
+                self._make_preview(document["id"], event)
+                return {"document_id": document["id"]}
+            except BaseException:
+                if not self.media.capabilities().get("available"):
+                    self._remember_media_listing(None)
+                raise
+        return self.jobs.submit("media_import", {"media_file_id": identifier}, action, key,
+            on_reserved=lambda _identifier: self.require_documents())
 
     def create_backup(self, values: dict, key: str | None) -> dict:
         settings = self.backups.validate_selection(values)

@@ -115,7 +115,16 @@ async function main() {
   assert.ok(!saved.includes("never-store-document-contents"));
   console.log("PASS: passwords and raw upload data never enter pending-request storage");
 
-  for (const [route, responseField, label] of [["/api/scan-sessions", "scan_session", "new-document"], ["/api/scan-sessions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pages", "job", "next-page"], ["/api/scanner/preview", "job", "scanner-preview"], ["/api/backups", "job", "backup-export"], ["/api/backups/restore", "job", "backup-restore"]]) {
+  for (const [route, responseField, label] of [
+    ["/api/scan-sessions", "scan_session", "new-document"],
+    ["/api/scan-sessions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/pages", "job", "next-page"],
+    ["/api/scanner/preview", "job", "scanner-preview"],
+    ["/api/backups", "job", "backup-export"],
+    ["/api/backups/restore", "job", "backup-restore"],
+    ["/api/media/probe", "job", "memory-card-check"],
+    ["/api/media/directories/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "job", "memory-card-folder"],
+    ["/api/media/files/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/import", "job", "memory-card-import"],
+  ]) {
     const workflowStorage = new Map(), accepted = new Map(), workflowKeys = [];
     let loseResponse = true;
     const workflowFetch = async (path, options) => {

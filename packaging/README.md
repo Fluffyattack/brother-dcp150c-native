@@ -67,6 +67,8 @@ Scan and copy controls require a compatible native SANE backend. See the [native
 
 The [German usage guide](../docs/control-center-usage.de.md) explains the browser workflows.
 
+The memory-card reader uses Python's standard library and opens only block devices under USB `04f9:01cf`, with group-read access from the supplied udev rule. It parses FAT12/16/32 directly without mounting the card or using a privileged helper. It refuses writable mounts, including a read-only bind mount backed by a writable filesystem. The normal document dependencies above are needed for import and preview. `dosfstools` and `mtools` are used only to generate regular-file test fixtures; they are not runtime dependencies. Physical card-reader enumeration remains to be verified.
+
 ## Native printing
 
 The installer checks `bh7filter --capabilities` before changing the system. It normally requires `production_ready: true`. The hardware-tested preview keeps this value false until broader physical coverage is established, so use the explicit preview option below. The installer also checks that the matching configuration tool can run.

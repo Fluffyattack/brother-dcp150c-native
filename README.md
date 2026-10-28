@@ -98,7 +98,9 @@ Select documents in the library to prepare a ZIP backup, optionally including pr
 
 Job history shows local creation/update times and the 50 most recent entries, while unresolved work remains visible beyond that window. Expand the list to see older recent entries. Removing an expired document does not remove its accepted request identity: private request records remain stored to prevent a delayed retry from creating another operation. Scheduler status checks only read known jobs and never release a held job.
 
-Scanning requires a compatible native SANE backend and an explicit successful connection check. An [optional native scanner source build](docs/scanner-setup.md) preserves this model's older protocol and builds its decoder for ARM. The browser does not start discovery or scanning on page load. Copying starts printing only after a scan has succeeded. Scanner-button, memory-card and maintenance functions need separate device evidence before activation.
+The memory-card area explicitly checks the printer's own removable storage, browses FAT12/16/32 folders and imports selected JPEG, PNG or PDF files into the document library. Imports keep the original bytes and use the usual preview, download and print settings. Sources are opened read-only; no mount, privileged helper or automatic print is used. Software checks use real temporary FAT images. The printer's physical card-reader connection still needs verification.
+
+Scanning requires a compatible native SANE backend and an explicit successful connection check. An [optional native scanner source build](docs/scanner-setup.md) preserves this model's older protocol and builds its decoder for ARM. The browser does not start discovery or scanning on page load. Copying starts printing only after a scan has succeeded. Scanner-button and maintenance commands need separate device evidence before activation.
 
 See the [installation guide](packaging/README.md#control-center-documents-and-password) for private storage, access and removal. The automated workflow runs document/OCR and protected HTTP tests without submitting physical printer jobs.
 
