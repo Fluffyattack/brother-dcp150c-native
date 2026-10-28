@@ -1,6 +1,6 @@
 # Raspberry Pi OS installation
 
-The installer supports Raspberry Pi OS with systemd and CUPS 2.x. The dashboard uses Python's standard library. Native printing additionally needs Ghostscript and a `bh7filter` built for the Pi's CPU, together with the matching `brprintconf_dcp150c` configuration tool. An A4/plain-paper/Normal test page has been physically printed on a Pi Zero 2 W. The [hardware validation results](../README.md#hardware-validation) describe the tested scope.
+The installer supports Raspberry Pi OS with systemd and CUPS 2.x. The status reader uses Python's standard library; document controls use the optional packages described below. Native printing additionally needs Ghostscript and a `bh7filter` built for the Pi's CPU, together with the matching `brprintconf_dcp150c` configuration tool. An A4/plain-paper/Normal test page has been physically printed on a Pi Zero 2 W. The [hardware validation results](../README.md#hardware-validation) describe the tested scope.
 
 Install the operating-system dependencies:
 
@@ -42,6 +42,30 @@ Restart after changes:
 sudo systemctl restart dcp150c-dashboard
 systemctl status dcp150c-dashboard
 ```
+
+## Control Center documents and password
+
+The status page remains usable without document-processing packages. For PDF/image uploads, page editing, previews and local OCR, install:
+
+```sh
+sudo apt install python3-pil python3-pypdf poppler-utils tesseract-ocr tesseract-ocr-deu tesseract-ocr-eng
+sudo env PYTHONPATH=/usr/lib/dcp150c-native python3 -m dcp150c.access_control
+sudo systemctl restart dcp150c-dashboard
+```
+
+Choose your own password of at least twelve characters. The command stores a salted scrypt password hash in `/etc/dcp150c-native/control-center-password.json`; it grants the service group read access. There is no default password. Without a valid password configuration, personal documents and actions remain inaccessible. Restarting closes existing browser sessions; signing out closes the current session.
+
+Systemd creates `/var/lib/dcp150c-control-center` for the dedicated service account, with private directory permissions. It contains documents, previews, OCR text and the settings/job database. Temporary documents expire after 24 hours by default; kept documents remain until explicitly deleted. Limits are configurable in the authenticated settings view. Uploads are limited to 20 MiB and 25 pages. OCR runs one page at a time with a single worker and CPU thread. The service has a 320 MiB memory ceiling; very large pages can be refused.
+
+For an uninstalled status-only run, pass `--disable-control-center`. For a development Control Center, use `--state-directory /absolute/private/directory` and `--password-file /absolute/password-hash.json`. Keep that directory out of source control. Changing dependencies requires restarting the service to refresh capability information.
+
+Requests that change data require a browser session and its request-verification token. Personal downloads are protected too. Publishing through an HTTPS reverse proxy is supported; the proxy should set `X-Forwarded-Proto: https` so browser session cookies are marked Secure. Restrict access to your own users. A temporary tunnel address can change when its tunnel is recreated.
+
+Settings exports contain profiles and retention/storage settings. They exclude credentials, browser sessions and document contents. Normal software removal preserves personal documents; remove `/var/lib/dcp150c-control-center` separately only when those files are no longer needed.
+
+Scan and copy controls require a compatible native SANE backend. See the [native scanner build instructions](../docs/scanner-setup.md); installing SANE alone does not establish model support. A connection check is an explicit browser action. Startup, page refresh and installation never start scanning or print a test page. Removal also removes the scanner's exact owned library link and registration, while preserving foreign entries.
+
+The [German usage guide](../docs/control-center-usage.de.md) explains the browser workflows.
 
 ## Native printing
 

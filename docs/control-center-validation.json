@@ -1,0 +1,57 @@
+{
+  "date": "2026-10-28",
+  "scope": "Offline Control Center, document, OCR and native scanner software verification",
+  "python_workflows": {
+    "tests": 33,
+    "hardware_submissions": false,
+    "includes": [
+      "Authenticated HTTP requests and protected downloads",
+      "Request forgery protection and session rotation",
+      "Actual multipage neural OCR and searchable PDF text",
+      "Page selection, rotation, crop, merge and image output",
+      "Durable request identifiers, queued input retention and restart recovery",
+      "Held print preparation with a recording transport",
+      "Isolated SANE virtual scanner acquisition and shared locking"
+    ]
+  },
+  "browser_request_recovery": {
+    "tests": 9,
+    "includes": [
+      "Lost response and page reload reuse the accepted operation",
+      "Explicit new operation after a known response gets a new identifier",
+      "Server errors and expired sessions retain uncertain operation identifiers",
+      "Unavailable browser storage refuses device submission",
+      "Passwords and raw uploads never enter pending request storage",
+      "Expired sessions obtain a new request verification token",
+      "Login refreshes stale anonymous sessions",
+      "Feedback and paper choices update with the selected language"
+    ]
+  },
+  "existing_print_installation_checks": 14,
+  "real_browser_workflows": {
+    "passed": 14,
+    "javascript_errors": 0,
+    "languages": ["de", "en"],
+    "viewport_widths": [320, 360, 1440],
+    "physical_device_operations": false,
+    "includes": ["Login", "PDF upload and preview", "Page editing and download", "Actual OCR", "Profiles", "Print confirmation without submission", "Lost response and reload", "Export and logout"]
+  },
+  "native_scanner": {
+    "protocol": "brscan2",
+    "architectures_loaded": ["aarch64", "armv7"],
+    "decoder_output_comparisons": 231,
+    "decoder_vectors_per_architecture": 77,
+    "architectures_compared": ["aarch64", "armv7_cross_build", "armv7_target_build"],
+    "target_decoder_sha256": "3b02037ec53999e6a673ba15033fda3b72a09bf8720a7d47d6c13252ef1ab3f8",
+    "installer_staging_checks": 4,
+    "physical_scan_verified": false,
+    "vendor_color_correction_enabled": false
+  },
+  "remaining_hardware_checks": [
+    "Acquire and inspect an image from the physical DCP-150C",
+    "Cancel a physical scan and confirm device recovery",
+    "Switch between scanning, printing and ink polling",
+    "Confirm additional physical print settings and USB reconnection"
+  ],
+  "physical_prints_or_scans_during_this_work": 0
+}

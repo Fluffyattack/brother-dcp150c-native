@@ -58,7 +58,8 @@ function applyLanguage(preference, remember = false) {
   for (const [attribute, destination] of [
     ["data-translation", null],
     ["data-translation-label", "aria-label"],
-    ["data-translation-content", "content"]
+    ["data-translation-content", "content"],
+    ["data-translation-placeholder", "placeholder"]
   ]) {
     for (const element of document.querySelectorAll(`[${attribute}]`)) {
       const text = translate(element.getAttribute(attribute), { seconds: numberFormatter.format(5) });
@@ -80,6 +81,8 @@ function applyLanguage(preference, remember = false) {
     findElementById(`ink-progress-${cartridge}`).setAttribute("aria-label",
       translate("ink.level_label", { colour: translate(`ink.${cartridge}`) }));
   }
+
+  document.dispatchEvent(new CustomEvent("dashboardlanguagechange"));
 
   // Switching language only renders cached data; it never starts a USB query.
   const showConnectionError = connectionUnavailable;

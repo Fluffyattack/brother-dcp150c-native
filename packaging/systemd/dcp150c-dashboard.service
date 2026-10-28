@@ -12,6 +12,7 @@ Environment=PYTHONUNBUFFERED=1
 Environment=DCP150C_LOCK_PATH=/run/lock/dcp150c-device.lock
 Environment=DCP150C_CONFIG_DIR=/etc/dcp150c-native
 Environment=DCP150C_DATA_DIR=/usr/share/dcp150c-native
+Environment=DCP150C_STATE_DIRECTORY=/var/lib/dcp150c-control-center
 EnvironmentFile=-/etc/dcp150c-native/queue.env
 EnvironmentFile=-/etc/dcp150c-native/dashboard.env
 ExecStart=/usr/bin/python3 -m dcp150c --host 0.0.0.0 --port 8080
@@ -28,8 +29,11 @@ ProtectKernelModules=true
 ProtectControlGroups=true
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 ReadWritePaths=/run/lock/dcp150c-device.lock
-MemoryMax=96M
-TasksMax=32
+StateDirectory=dcp150c-control-center
+StateDirectoryMode=0700
+MemoryMax=320M
+TasksMax=48
+Nice=5
 
 [Install]
 WantedBy=multi-user.target

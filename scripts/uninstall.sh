@@ -60,6 +60,33 @@ if [ -z "$staging_root" ] && command -v cups-config >/dev/null; then
     cups_serverbin=$(cups-config --serverbin)
 fi
 configuration_command=$staging_root/usr/bin/dcp150c-config
+if [ -f "$staging_root/var/lib/dcp150c-native/scanner-installation.json" ]; then
+    # Remove only the exact native scanner links/registration we installed.
+    python3 - "$staging_root" <<'PY'
+import json
+import os
+from pathlib import Path
+import re
+import sys
+
+root = Path(sys.argv[1] or '/')
+record_path = root / 'var/lib/dcp150c-native/scanner-installation.json'
+try:
+    record = json.loads(record_path.read_text())
+    relative = record.get('backend_path', '')
+    target = '/usr/lib/dcp150c-native/scanner/libsane-brother2.so.1'
+    if (record.get('format') == 1 and record.get('backend_target') == target
+            and re.fullmatch(r'usr/lib/[A-Za-z0-9_-]+/sane/libsane-brother2\.so\.1', relative)):
+        backend = root / relative
+        if backend.is_symlink() and os.readlink(backend) == target:
+            backend.unlink()
+    registration = root / 'etc/sane.d/dll.d/dcp150c-native'
+    if not registration.is_symlink() and registration.is_file() and registration.read_text() == 'brother2\n':
+        registration.unlink()
+except (OSError, ValueError, TypeError):
+    print('Scanner registration could not be checked; unrelated files were preserved.')
+PY
+fi
 if [ -L "$configuration_command" ] && \
     [ "$(readlink -- "$configuration_command")" = /usr/lib/dcp150c-native/brprintconf_dcp150c ]; then
     rm -f -- "$configuration_command"
@@ -89,3 +116,4 @@ if [ "$purge" -eq 1 ]; then
 else
     printf 'Software was removed. Your settings remain in /etc/dcp150c-native.\n'
 fi
+printf 'Personal documents remain in /var/lib/dcp150c-control-center.\n'

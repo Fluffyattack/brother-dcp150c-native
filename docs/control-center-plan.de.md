@@ -1,6 +1,8 @@
 # Funktionsplan für das DCP-150C Control Center
 
-Stand: 28. Oktober 2026. Status: Planung für die nächste Ausbaustufe.
+Stand: 28. Oktober 2026. Status: Web- und Verarbeitungspfade implementiert; weitere Gerätetests offen.
+
+Die Webbedienung, Dokumentverarbeitung und lokale Texterkennung sind implementiert. Den nutzbaren Ablauf beschreibt die [Bedienungsanleitung](control-center-usage.de.md), die Softwareprüfungen stehen im [Prüfbericht](control-center-validation.json). Die nachfolgenden Abnahmekriterien bleiben bestehen; eine implementierte Scanner-Anbindung ersetzt keinen bestätigten Scan am Gerät.
 
 Das vorhandene Dashboard soll zu einer verständlichen Steuerzentrale für Drucken, Scannen, Dokumente und Gerätestatus werden. Es bleibt im Browser auf Handy und Computer bedienbar. Der native Druckertreiber bleibt dabei ein eigenständig installierbarer Bestandteil.
 
@@ -18,9 +20,10 @@ Für unser Projekt dienen die Funktionen als Vorbild. Die Bedienung und Gestaltu
 | Physischer Druck | Eine A4-Seite auf Normalpapier in Normalqualität über den nativen Druckpfad bestätigt |
 | Drucken im Netzwerk | Gemeinsame Warteschlange und Erkennung im lokalen Netzwerk eingerichtet |
 | Gerätestatus und Tintenfüllstände | Direkte Abfrage des Druckers, gemeinsame USB-Sperre mit der Druckwarteschlange |
-| Weboberfläche | Status, Füllstände und Druckaktivität; Deutsch und Englisch mit gespeicherter Sprachwahl |
-| Scanner auf dem Drucker-Pi | Die Linux-Scannerschnittstelle SANE und `scanimage` sind vorhanden; eine funktionierende native DCP-150C-Anbindung ist noch nachzuweisen |
-| Webaktionen und Dokumentablage | Noch nicht implementiert; die bestehende Oberfläche liest Statusdaten |
+| Weboberfläche | Sieben Bereiche mit Anmeldung, Aufträgen, Deutsch und Englisch sowie gespeicherter Sprachwahl |
+| Scanner auf dem Drucker-Pi | Natives Backend für das ältere Modellprotokoll gebaut und installiert; Decoder auf drei Builds verglichen; erste echte Aufnahme noch offen |
+| Webaktionen und Dokumentablage | Geschützte Uploads, Vorschau, Bearbeitung, Zusammenführen, Drucken, Aufbewahrung und Profile implementiert |
+| Texterkennung | Lokale neuronale Tesseract-Erkennung; mehrseitige durchsuchbare PDFs und Textdateien mit echten Softwaretests geprüft |
 
 Die aktuellen Druckergebnisse und ihre Einstellungen stehen im [Hardwaretest](../README.md#hardware-validation). Der bytegleiche Vergleich bestätigt die verglichenen Druckdaten. Einschalten, USB-Wiederverbindung und echte Scannerbewegungen sind gesonderte Gerätetests.
 
@@ -116,7 +119,7 @@ flowchart TD
 
 Drucken, Scannen und Statusabfragen erhalten zunächst einen gemeinsamen Ablaufplan für den Gerätezugriff. Die vorhandene USB-Sperre wird auch beim Scannen eingehalten. Statusabfragen warten während einer Geräteoperation. Gleichzeitiger Druck- und Scannerzugriff wird erst nach gesondertem Nachweis zugelassen.
 
-Geplante Module folgen ihren Aufgaben: `printing_service.py`, `scanner_service.py`, `job_manager.py`, `document_storage.py`, `document_processing.py` und `access_control.py`. Die bestehenden Status- und Protokollmodule bleiben nutzbar. Die Dateinamen sind eine geplante Struktur, keine bereits implementierten Funktionen.
+Die implementierten Module folgen ihren Aufgaben: `printing_service.py`, `scanner_service.py`, `job_manager.py`, `document_storage.py`, `document_processing.py` und `access_control.py`. `ocr_service.py` ergänzt die lokale Texterkennung. Die bestehenden Status- und Protokollmodule bleiben nutzbar.
 
 Prozesslimits, freier Speicher und Zeitüberschreitungen werden berücksichtigt. Als erste konfigurierbare Vorgaben sind 20 Megabyte pro Upload und 25 Seiten pro Scan-Sitzung vorgesehen. Bilder und PDFs werden nach ihrer tatsächlichen Dateistruktur geprüft. Fehlertexte nennen das Problem und eine mögliche nächste Aktion.
 
@@ -124,7 +127,7 @@ Prozesslimits, freier Speicher und Zeitüberschreitungen werden berücksichtigt.
 
 Vor dem Aktivieren von Uploads, Scans oder Druckaktionen erhält die Steuerzentrale eine Anmeldung. Geschützte Dateien und Aufträge sind nur nach Anmeldung sichtbar. Geräteaktionen verwenden gesicherte Anfragen und können nicht durch das bloße Öffnen eines Links ausgelöst werden.
 
-Für unterwegs ist eine feste geschützte Adresse vorgesehen. Der bestehende temporäre Cloudflare-Link reicht für die aktuelle Statusansicht, kann sich aber bei einem Neustart des Tunnels ändern. Die Auswahl des dauerhaften Zugangs erfolgt vor der Freigabe persönlicher Dokumente und Bedienaktionen.
+Für unterwegs können die angemeldeten Funktionen über einen HTTPS-Zugang verwendet werden. Die Anwendung schützt Dokumente und Aktionen zusätzlich mit ihrer eigenen Anmeldung. Der bestehende temporäre Cloudflare-Link kann sich bei einem Neustart des Tunnels ändern. Eine feste Adresse bleibt eine zusätzliche Betriebsmöglichkeit.
 
 Sicherung und Wiederherstellung umfassen Einstellungen, Profile und bei ausdrücklicher Auswahl gespeicherte Dokumente. Zugangsgeheimnisse bleiben außerhalb des öffentlichen Projekts.
 
@@ -152,4 +155,4 @@ Der Beginn der Scanner-Etappe hängt vom Nachweis der nativen Geräteanbindung a
 | Anmeldung, Dateirechte, Ablage und Aufräumen testen | Geräte-Tasten und Kartenleser im echten Betrieb |
 | Zeitüberschreitungen, Abbruch und Wiederaufnahme mit simulierten Geräteantworten | Wechsel zwischen Scannen, Drucken und Statusabfrage |
 
-Die Umsetzung der ControlCenter-Erweiterungen beginnt nach der Auswahl und Durchsprache der Etappen.
+Alle für dieses Modell sinnvollen Bereiche sind zur Umsetzung beauftragt. Geräteaktionen werden erst nach eigener Prüfung freigegeben; im ausgeschalteten Zustand erfolgen ausschließlich Software- und Verarbeitungstests.

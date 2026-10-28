@@ -1,6 +1,6 @@
 # Brother DCP-150C Native
 
-Native Linux printing and a local printer dashboard for the **Brother DCP-150C on Raspberry Pi**.
+Native Linux printing and a browser Control Center for the **Brother DCP-150C on Raspberry Pi**.
 
 **Native printing has been tested on real hardware.** A Pi Zero 2 W successfully printed an A4 test page through the native CUPS queue at Normal quality on plain paper, with readable text and a continuous alignment line.
 
@@ -10,7 +10,10 @@ The software includes:
 
 - A portable C program that converts page pixels into DCP-150C printer commands, without running an x86 driver through an emulator.
 - Integration with the Common UNIX Printing System (CUPS), including PDF/PostScript rendering, six quality settings and a separate printer queue.
-- A small dashboard in German and English with printing activity, connection status and available ink information. It runs without Python package dependencies.
+- A dashboard in German and English with printing activity, connection status and available ink information. The status reader uses Python's standard library.
+- Protected document uploads, previews, page editing, print controls, profiles and automatic document retention.
+- Local neural text recognition with Tesseract, searchable multipage PDFs and text downloads. Document tools additionally use Pillow, pypdf and Poppler.
+- Scanner and copy workflows through a native SANE backend, with explicit detection and shared device locking. Physical scanning on this model remains to be confirmed.
 - A configuration tool with readable options and installation/removal scripts that preserve existing printer settings.
 
 ![English dashboard showing the real printer status and reported cartridge levels](docs/images/dashboard-english.png)
@@ -56,7 +59,7 @@ sudo scripts/install.sh --dashboard-only --queue YOUR_EXISTING_QUEUE
 Open `http://<pi-address>:8080/`. For a quick run without installing a service:
 
 ```sh
-python3 -m dcp150c --queue YOUR_EXISTING_QUEUE
+python3 -m dcp150c --queue YOUR_EXISTING_QUEUE --disable-control-center
 ```
 
 Unavailable ink readings appear as unknown. Status requests wait while the printer connection is in use.
@@ -73,9 +76,23 @@ To add another language, copy an entry in [`dcp150c/static/translations.js`](dcp
 
 The status API keeps its existing English `message` and `warnings` fields for compatibility. `message_code`, `message_parameters` and `warning_details` provide stable identifiers and parameters for translated clients.
 
-## Planned Control Center
+## Browser Control Center
 
-A [functional plan for a browser-based Control Center](docs/control-center-plan.de.md) is available in German. It maps the useful ControlCenter3 workflows to proposed printing, scanning, document, copying and profile features, with dependencies and acceptance criteria. These are planned extensions. Native scanner support must be established before scanning is offered as a working feature.
+The browser now has Overview, Print, Scan, Documents, Copy, Profiles and Settings sections. Personal documents and actions require a password; printer status remains available without signing in. The [German usage guide](docs/control-center-usage.de.md) explains the workflows. The [functional plan](docs/control-center-plan.de.md) records the broader scope and hardware acceptance criteria.
+
+Install the document dependencies, then set your own password after installing the service:
+
+```sh
+sudo apt install python3-pil python3-pypdf poppler-utils tesseract-ocr tesseract-ocr-deu tesseract-ocr-eng
+sudo env PYTHONPATH=/usr/lib/dcp150c-native python3 -m dcp150c.access_control
+sudo systemctl restart dcp150c-dashboard
+```
+
+Uploads accept PDF, PNG and JPEG, up to 20 MiB and 25 pages. Documents can be reordered, rotated, cropped, merged, downloaded and explicitly printed. Temporary documents expire after 24 hours by default; choose Keep to retain one. OCR runs locally, one page at a time, using Tesseract's LSTM neural engine and installed language models. Results include a searchable PDF and a UTF-8 text file. Recognition quality depends on the original; review important text.
+
+Scanning requires a compatible native SANE backend and an explicit successful connection check. An [optional native scanner source build](docs/scanner-setup.md) preserves this model's older protocol and builds its decoder for ARM. The browser does not start discovery or scanning on page load. Copying starts printing only after a scan has succeeded. Scanner-button, memory-card and maintenance functions need separate device evidence before activation.
+
+See the [installation guide](packaging/README.md#control-center-documents-and-password) for private storage, access and removal. The automated workflow runs document/OCR and protected HTTP tests without submitting physical printer jobs.
 
 ## Install native printing
 
@@ -136,7 +153,12 @@ sudo scripts/install.sh --filter build/armv6/bh7filter --allow-unverified-filter
 | `src/planes.c`, `src/codecs.c`, `src/device.c` | Arrange nozzles, compress rows and write printer commands |
 | `src/printconfig.c` | Read and safely update configuration files |
 | `data/`, `config/` | Required printer calibration, paper dimensions and defaults |
-| `dcp150c/` | Status reader, HTTP server and dashboard |
+| `dcp150c/status.py`, `status_protocol.py` | Cached printer status and managed cartridge queries |
+| `dcp150c/server.py`, `access_control.py` | HTTP routes, password login and protected actions |
+| `dcp150c/document_storage.py`, `job_manager.py` | Private files, retention and durable background jobs |
+| `dcp150c/document_processing.py`, `ocr_service.py` | Page editing, previews and searchable documents |
+| `dcp150c/printing_service.py`, `scanner_service.py` | Explicit printing and serialized scanner operations |
+| `dcp150c/static/` | Responsive browser interface and translations |
 | `packaging/`, `scripts/` | Print-service integration and installation |
 
 `bh7filter` is the compatibility name of the raster converter. `Bh7` identifiers refer to this printer engine. External configuration names and protocol identifiers are retained for compatibility; project functions and messages describe their purpose.

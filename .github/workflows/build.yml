@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install cross compiler
-        run: sudo apt-get update && sudo apt-get install -y gcc-arm-linux-gnueabihf qemu-user
+        run: sudo apt-get update && sudo apt-get install -y gcc-arm-linux-gnueabihf qemu-user python3-pil python3-pypdf poppler-utils tesseract-ocr tesseract-ocr-deu tesseract-ocr-eng fonts-dejavu-core sane-utils
       - name: Build host tools
         run: make
       - name: Build ARMv6 tools
@@ -54,6 +54,11 @@ jobs:
         run: |
           node --check dcp150c/static/translations.js
           node --check dcp150c/static/app.js
+          node --check dcp150c/static/control-center.js
+      - name: Verify document workflows and protected browser actions offline
+        run: |
+          python3 -m unittest discover -s verification -p 'test_*.py' -v
+          node verification/test_control_center_requests.cjs
       - name: Package binaries with their source and runtime data
         run: scripts/package-armv6.sh
       - name: Upload the Pi package
