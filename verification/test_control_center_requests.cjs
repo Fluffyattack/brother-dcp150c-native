@@ -154,6 +154,11 @@ async function main() {
   assert.equal(vm.runInContext('restoredSettings.length', scannerContext), 1);
   assert.equal(vm.runInContext('restoredSettings[0].resolution', scannerContext), 100);
   console.log("PASS: saved scan settings survive an unavailable scanner and restore once after discovery");
+  assert.equal(browser('scannerReadinessMessage({available:false,configured:false,reason_code:"scanner_not_checked"})'),"scan.needs_check");
+  assert.equal(browser('scannerReadinessMessage({available:false,configured:false,reason_code:"scanner_software_missing"})'),"scan.not_configured");
+  assert.equal(browser('scannerReadinessMessage({available:false,configured:false,reason_code:"scanner_not_found"})'),"scan.unavailable");
+  assert.equal(browser('scannerReadinessMessage({available:true})'),"scan.available");
+  console.log("PASS: an unchecked scanner is distinguished from missing software and an unavailable device");
 
   let anonymousSessions = 0;
   let submittedLoginToken = null;

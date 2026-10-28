@@ -18,7 +18,7 @@
     ]
   },
   "browser_request_recovery": {
-    "tests": 13,
+    "tests": 14,
     "includes": [
       "Lost response and page reload reuse the accepted operation",
       "Explicit new operation after a known response gets a new identifier",

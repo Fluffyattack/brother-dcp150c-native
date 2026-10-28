@@ -466,10 +466,18 @@ function setScannerOptions(selector, values, fallbackLabel) {
   if ([...selector.options].some((option) => option.value === previous)) selector.value = previous;
 }
 
+function scannerReadinessMessage(scanner) {
+  if (scanner.available === true) return "scan.available";
+  if (scanner.reason_code === "scanner_not_checked") return "scan.needs_check";
+  if (scanner.reason_code === "scanner_software_missing") return "scan.not_configured";
+  if (scanner.reason_code) return "scan.unavailable";
+  return scanner.configured === false ? "scan.not_configured" : "scan.unavailable";
+}
+
 function updateScannerControls() {
   const scanner = controlState?.capabilities?.scanner || {};
   const available = scanner.available === true;
-  const identifier = available ? "scan.available" : scanner.configured === false ? "scan.not_configured" : "scan.unavailable";
+  const identifier = scannerReadinessMessage(scanner);
   for (const noteIdentifier of ["scanner-note", "copy-scanner-note"]) {
     const note = findElementById(noteIdentifier);
     note.textContent = controlText(identifier);

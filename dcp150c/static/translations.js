@@ -1012,6 +1012,7 @@ const scanAreaTranslations = {
     "scan_area.invalid": "Choose an area at least 1 mm wide and high, entirely inside the scanner glass.",
     "scan_area.copy_selected": "Copy only the area selected in Scan",
     "scan_area.copy_help": "Choose the area in Scan first. Leave this unchecked to copy the normal document area.",
+    "scan.needs_check": "The scanner has not been checked yet. Switch the device on, then choose Check scanner.",
     "jobs.kind.scan_preview": "Reading the scanner preview"
   },
   de: {
@@ -1030,6 +1031,7 @@ const scanAreaTranslations = {
     "scan_area.invalid": "Wähle einen mindestens 1 mm breiten und hohen Bereich, der vollständig auf dem Vorlagenglas liegt.",
     "scan_area.copy_selected": "Nur den unter Scannen gewählten Bereich kopieren",
     "scan_area.copy_help": "Wähle den Bereich zuerst unter Scannen. Ohne diese Auswahl wird der normale Dokumentbereich kopiert.",
+    "scan.needs_check": "Der Scanner wurde noch nicht geprüft. Schalte das Gerät ein und wähle Scanner prüfen.",
     "jobs.kind.scan_preview": "Scanner-Vorschau einlesen"
   }
 };
