@@ -73,6 +73,10 @@ To add another language, copy an entry in [`dcp150c/static/translations.js`](dcp
 
 The status API keeps its existing English `message` and `warnings` fields for compatibility. `message_code`, `message_parameters` and `warning_details` provide stable identifiers and parameters for translated clients.
 
+## Planned Control Center
+
+A [functional plan for a browser-based Control Center](docs/control-center-plan.de.md) is available in German. It maps the useful ControlCenter3 workflows to proposed printing, scanning, document, copying and profile features, with dependencies and acceptance criteria. These are planned extensions. Native scanner support must be established before scanning is offered as a working feature.
+
 ## Install native printing
 
 The A4/plain-paper/Normal path has passed its first physical test. The current release remains a preview while broader hardware coverage is collected. Approve the exact preview executable with:
