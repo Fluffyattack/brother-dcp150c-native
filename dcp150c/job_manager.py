@@ -17,6 +17,7 @@ from .document_storage import DocumentStorage, StorageError, utc_time
 
 
 LOG = logging.getLogger("dcp150c.jobs")
+RECENT_JOB_LIMIT = 50
 
 
 class JobManager:
@@ -36,29 +37,50 @@ class JobManager:
                 );
                 UPDATE jobs SET state='interrupted', message_code='job_interrupted'
                     WHERE state IN ('queued','running');
+                CREATE INDEX IF NOT EXISTS jobs_created_at ON jobs(created_at DESC);
+                CREATE INDEX IF NOT EXISTS jobs_state ON jobs(state);
             """)
         self._worker = threading.Thread(target=self._run, name="dcp150c-documents", daemon=False)
         self._worker.start()
 
     def _record(self, row) -> dict:
         parameters, result = json.loads(row["parameters"]), json.loads(row["result"])
+        needs_attention = (row["state"] in {"queued", "running", "submitted"}
+                           or (row["state"] in {"interrupted", "failed"} and bool(result.get("cups_job_id"))
+                               and result.get("cups_state") not in {7, 8, 9}))
         return {"id": row["id"], "kind": row["kind"], "state": row["state"],
                 "created_at": utc_time(row["created_at"]), "updated_at": utc_time(row["updated_at"]),
                 "message_code": row["message_code"], "document_id": parameters.get("document_id"),
                 "scan_session_id": parameters.get("scan_session_id"),
                 "result_document_id": result.get("document_id"), "cups_job_id": result.get("cups_job_id"),
                 "progress": 100 if row["state"] in {"succeeded", "submitted"} else None,
-                "result": result}
+                "result": result, "needs_attention": needs_attention}
+
+    @staticmethod
+    def history_policy() -> dict:
+        return {"recent_limit": RECENT_JOB_LIMIT, "all_unresolved_jobs_visible": True,
+                "request_records_retention": "while_private_state_exists", "automatic_replay": False}
 
     def list(self) -> list[dict]:
         with self.storage.guard:
-            rows = self.storage.connection.execute("SELECT * FROM jobs ORDER BY created_at DESC LIMIT 50").fetchall()
-        return [self._record(row) for row in rows]
+            recent = self.storage.connection.execute("SELECT * FROM jobs ORDER BY created_at DESC LIMIT ?", (RECENT_JOB_LIMIT,)).fetchall()
+            # Stored result JSON is produced by json.dumps. This inexpensive
+            # candidate check works without SQLite's optional JSON extension;
+            # _record checks the actual parsed reference and terminal state.
+            pending = self.storage.connection.execute("""SELECT * FROM jobs WHERE state IN ('queued','running','submitted')
+                OR (state IN ('interrupted','failed') AND instr(result, '"cups_job_id":')>0)""").fetchall()
+        rows = {row["id"]: row for row in recent}
+        for row in pending:
+            if self._record(row)["needs_attention"]:
+                rows[row["id"]] = row
+        return [self._record(row) for row in sorted(rows.values(), key=lambda row: row["created_at"], reverse=True)]
 
     def unfinished_print_jobs(self) -> list[dict]:
         with self.storage.guard:
-            rows = self.storage.connection.execute("SELECT * FROM jobs WHERE state IN ('submitted','interrupted') ORDER BY created_at").fetchall()
-        return [self._record(row) for row in rows if json.loads(row["result"]).get("cups_job_id")]
+            rows = self.storage.connection.execute("""SELECT * FROM jobs WHERE state IN ('submitted','interrupted','failed')
+                AND instr(result, '"cups_job_id":')>0 ORDER BY created_at""").fetchall()
+        records = [self._record(row) for row in rows]
+        return [record for record in records if record["cups_job_id"] and record["needs_attention"]]
 
     def get(self, identifier: str) -> dict:
         with self.storage.guard:
@@ -118,10 +140,14 @@ class JobManager:
 
     def _update(self, identifier: str, state: str, code: str, result: dict | None = None) -> None:
         with self.storage.guard, self.storage.connection:
+            row = self.storage.connection.execute("SELECT result FROM jobs WHERE id=?", (identifier,)).fetchone()
+            previous = json.loads(row["result"]) if row else {}
             if result is not None:
-                self.remember_result(identifier, result)
-            self.storage.connection.execute("UPDATE jobs SET state=?,message_code=?,updated_at=? WHERE id=?", (
-                state, code, time.time(), identifier))
+                previous.update(result)
+            # State and its result are one commit. remember_result deliberately
+            # has its own commit only when saving a held CUPS reference before release.
+            self.storage.connection.execute("UPDATE jobs SET state=?,message_code=?,updated_at=?,result=? WHERE id=?", (
+                state, code, time.time(), json.dumps(previous), identifier))
 
     def _run(self) -> None:
         while not self._stopping.is_set() or not self._queue.empty():

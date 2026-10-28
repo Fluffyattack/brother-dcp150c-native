@@ -13,6 +13,7 @@ let lastDocumentRenderKey = "";
 let confirmationAction = null;
 let lastControlCollections = {};
 let lastControlFeedback = null;
+let jobHistoryExpanded = false;
 const controlViews = ["overview", "print", "scan", "documents", "copy", "profiles", "settings"];
 const pendingRequestStorageKey = "dcp150c.control-center.pending-requests";
 const pendingControlRequests = readPendingControlRequests();
@@ -204,6 +205,7 @@ function showControlView(name, focus = false) {
 function clearPrivateViews() {
   selectedDocumentIdentifier = null;
   documentSelection = [];
+  jobHistoryExpanded = false;
   lastDocumentRenderKey = "";
   lastControlCollections = {};
   for (const identifier of ["document-list", "profile-list", "control-job-list", "component-list", "selected-documents"]) {
@@ -225,6 +227,8 @@ function clearPrivateViews() {
   findElementById("document-detail").hidden = true;
   findElementById("print-document").replaceChildren();
   findElementById("control-jobs").hidden = true;
+  findElementById("jobs-show-more").hidden = true;
+  findElementById("job-history-note").textContent = "";
   if (findElementById("action-confirmation").open) findElementById("action-confirmation").close();
   confirmationAction = null;
   if (typeof clearScanSessionViews === "function") clearScanSessionViews();
@@ -546,14 +550,42 @@ function renderProfiles() {
   if ([...scanSelector.options].some((option) => option.value === previous)) scanSelector.value = previous;
 }
 
+function jobNeedsAttention(job) {
+  if (typeof job.needs_attention === "boolean") return job.needs_attention;
+  return ["queued", "running", "submitted"].includes(job.state)
+    || (["interrupted", "failed"].includes(job.state) && Boolean(job.cups_job_id) && ![7, 8, 9].includes(job.result?.cups_state));
+}
+
+function appendJobTimestamp(container, value, message) {
+  const date = typeof value === "string" ? new Date(value) : null;
+  if (!date || !Number.isFinite(date.getTime())) return;
+  const formatter = new Intl.DateTimeFormat(selectedLanguage, { dateStyle: "medium", timeStyle: "short" });
+  const time = makeElement("time", "job-timestamp", controlText(message, { time: formatter.format(date) }));
+  time.dateTime = value;
+  container.append(time);
+}
+
 function renderControlJobs() {
   const jobs = controlState?.jobs || [];
+  const active = jobs.filter(jobNeedsAttention);
+  const history = jobs.filter((job) => !jobNeedsAttention(job));
+  const visibleHistory = jobHistoryExpanded ? history : history.slice(0, 10);
+  const visible = [...active, ...visibleHistory];
   const container = findElementById("control-job-list");
   container.replaceChildren();
   findElementById("control-jobs").hidden = !jobs.length || !controlSession?.authenticated;
   findElementById("control-job-count").textContent = numberFormatter.format(jobs.length);
-  for (const job of jobs.slice(0, 15)) {
+  const more = findElementById("jobs-show-more");
+  more.hidden = history.length <= 10;
+  more.textContent = controlText(jobHistoryExpanded ? "jobs.show_less" : "jobs.show_more", { count: numberFormatter.format(history.length - 10) });
+  more.setAttribute("aria-expanded", String(jobHistoryExpanded));
+  const timezone = new Intl.DateTimeFormat(selectedLanguage).resolvedOptions().timeZone;
+  findElementById("job-history-note").textContent = controlText("jobs.history_policy", {
+    count: numberFormatter.format(controlState?.job_history_policy?.recent_limit || 50), timezone });
+  for (const job of visible) {
     const row = makeElement("article", "control-job");
+    row.dataset.jobId = job.id;
+    row.dataset.needsAttention = String(jobNeedsAttention(job));
     const dot = makeElement("span", `job-dot ${job.state}`);
     dot.setAttribute("aria-hidden", "true");
     const information = makeElement("div");
@@ -564,17 +596,22 @@ function renderControlJobs() {
     let detail = dashboardLanguages.en.messages[messageIdentifier] ? controlText(messageIdentifier) : dashboardLanguages.en.messages[errorIdentifier] ? controlText(errorIdentifier) : "";
     if (job.cups_job_id && !dashboardLanguages.en.messages[messageIdentifier]) detail = controlText("jobs.submitted_detail", { identifier: job.cups_job_id });
     information.append(makeElement("p", "job-description", detail));
+    appendJobTimestamp(information, job.created_at, "jobs.created_at");
+    if (job.updated_at !== job.created_at) appendJobTimestamp(information, job.updated_at, "jobs.updated_at");
     const actions = makeElement("div", "control-job-actions");
     const stateIdentifier = `jobs.state.${job.state}`;
     actions.append(makeElement("span", "control-job-state", controlText(dashboardLanguages.en.messages[stateIdentifier] ? stateIdentifier : "jobs.state.unknown")));
     const resultIdentifier = job.result_document_id || job.result?.document_id;
-    if (resultIdentifier) actions.append(makeButton(controlText("jobs.open_result"), "text-button", () => selectDocument(resultIdentifier)));
-    if (job.result?.restored_document_ids?.length) actions.append(makeButton(controlText("backup.open_restored"), "text-button", () => {
-      documentSelection = job.result.restored_document_ids.slice();
+    const resultAvailable = resultIdentifier && controlState?.documents?.some((document) => document.id === resultIdentifier);
+    if (resultAvailable) actions.append(makeButton(controlText("jobs.open_result"), "text-button", () => selectDocument(resultIdentifier)));
+    const restoredIdentifiers = job.result?.restored_document_ids?.filter((identifier) => controlState?.documents?.some((document) => document.id === identifier)) || [];
+    if ((resultIdentifier && !resultAvailable) || (job.result?.restored_document_ids?.length && !restoredIdentifiers.length)) information.append(makeElement("p", "job-description", controlText("jobs.result_unavailable")));
+    if (restoredIdentifiers.length) actions.append(makeButton(controlText("backup.open_restored"), "text-button", () => {
+      documentSelection = restoredIdentifiers.slice();
       showControlView("documents", true);
       renderDocuments();
     }));
-    if (!terminalJobStates.includes(job.state) || (["submitted", "interrupted", "failed"].includes(job.state) && job.cups_job_id)) actions.append(makeButton(controlText("jobs.cancel"), "secondary-button", (event) => performControlAction(event.currentTarget, async () => {
+    if (jobNeedsAttention(job) && (["queued", "running"].includes(job.state) || job.cups_job_id)) actions.append(makeButton(controlText("jobs.cancel"), "secondary-button", (event) => performControlAction(event.currentTarget, async () => {
       await controlRequest(`/api/jobs/${encodeURIComponent(job.id)}/cancel`, { method: "POST", body: {} });
       await refreshControlCenter();
     })));
@@ -703,6 +740,10 @@ async function startDocumentJob(path, settings, button) {
 }
 
 // Keyboard navigation follows the accessible tab pattern; it never performs work.
+findElementById("jobs-show-more").addEventListener("click", () => {
+  jobHistoryExpanded = !jobHistoryExpanded;
+  renderControlJobs();
+});
 for (const [index, viewName] of controlViews.entries()) {
   const tab = findElementById(`tab-${viewName}`);
   tab.addEventListener("click", () => showControlView(viewName));

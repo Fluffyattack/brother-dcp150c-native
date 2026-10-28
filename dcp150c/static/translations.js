@@ -1126,3 +1126,21 @@ const maintenanceTranslations = {
 for (const [language, messages] of Object.entries(maintenanceTranslations)) {
   Object.assign(dashboardLanguages[language].messages, messages);
 }
+
+const jobHistoryTranslations = {
+  en: {
+    "jobs.created_at": "Created: {time}", "jobs.updated_at": "Updated: {time}",
+    "jobs.show_more_label": "Show older jobs", "jobs.show_more": "Show {count} older jobs", "jobs.show_less": "Show fewer completed jobs",
+    "jobs.result_unavailable": "This result is no longer available in Documents.",
+    "jobs.history_policy": "Open jobs stay visible, followed by the {count} most recent jobs. Times use your device's time zone ({timezone}). Job information stays permanently in private storage on the Pi so repeated requests can be recognised; document files follow their own retention setting."
+  },
+  de: {
+    "jobs.created_at": "Angelegt: {time}", "jobs.updated_at": "Aktualisiert: {time}",
+    "jobs.show_more_label": "Ältere Aufträge anzeigen", "jobs.show_more": "{count} ältere Aufträge anzeigen", "jobs.show_less": "Weniger abgeschlossene Aufträge anzeigen",
+    "jobs.result_unavailable": "Dieses Ergebnis ist nicht mehr in der Dokumentablage verfügbar.",
+    "jobs.history_policy": "Offene Aufträge bleiben sichtbar, dazu die {count} jüngsten Aufträge. Zeiten gelten für die Zeitzone deines Geräts ({timezone}). Auftragsinformationen bleiben dauerhaft privat auf dem Pi, damit wiederholte Anfragen erkannt werden; Dokumentdateien haben ihre eigene Aufbewahrungsfrist."
+  }
+};
+for (const [language, messages] of Object.entries(jobHistoryTranslations)) {
+  Object.assign(dashboardLanguages[language].messages, messages);
+}

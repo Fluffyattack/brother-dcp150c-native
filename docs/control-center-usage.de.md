@@ -14,6 +14,14 @@ Wähle das Dokument und danach Seiten, Kopienzahl, Papierformat, Material, Quali
 
 Kontrolliere die Zusammenfassung und bestätige **Drucken**. Erst diese Bestätigung erzeugt einen Druckauftrag. Ein Neuladen der Seite startet keinen weiteren Druck. Die Auftragsanzeige erlaubt das Abbrechen. „Abgeschlossen“ bezeichnet den gemeldeten Zustand der Druckverwaltung; die Papierausgabe lässt sich anschließend am Gerät prüfen.
 
+## Auftragshistorie
+
+Unter **Deine Aufträge** stehen offene Aufträge zuerst. Sie bleiben auch dann sichtbar, wenn viele neuere Aufträge hinzukommen. Dazu werden die 50 jüngsten Aufträge berücksichtigt. Zunächst erscheinen zehn erledigte Einträge; über **Ältere Aufträge anzeigen** kannst du die übrigen einblenden. Ein älterer Druckauftrag mit noch ungeklärtem Zustand lässt sich weiterhin ausdrücklich abbrechen.
+
+Datum und Uhrzeit zeigen Anlage und letzte Aktualisierung in der Zeitzone deines Handys oder Computers. Die Sprachwahl ändert auch das Datumsformat. Eine aus der Dokumentablage entfernte Ergebnisdatei erhält einen entsprechenden Hinweis statt eines nicht mehr nutzbaren Öffnen-Knopfs.
+
+Die Anzeigegrenze löscht keine gespeicherten Anfragekennungen. Auftragsinformationen und ihre Zustände bleiben dauerhaft im privaten Zustandsspeicher des Pis erhalten, damit eine bereits angenommene Anfrage auch nach einem Browser- oder Dienstneustart wiedererkannt wird. Dokumentdateien unterliegen weiterhin ihrer eigenen Aufbewahrungsfrist. Das Neuladen der Historie und das Abfragen der Druckverwaltung setzen keinen angehaltenen Druckauftrag fort und starten keinen neuen.
+
 ## Scannen und Kopieren
 
 Schalte den Drucker ein und lege das Original auf das Vorlagenglas. **Scanner prüfen** sucht ausdrücklich nach diesem Modell und liest die angebotenen Einstellungen. Die Auswahl zeigt anschließend die gemeldeten Auflösungen und Farbmodi. Erst **Scannen** startet die Aufnahme. Bei fehlender Verbindung erscheint eine Erklärung.

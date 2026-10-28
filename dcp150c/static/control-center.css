@@ -103,6 +103,8 @@ button[aria-busy="true"] { opacity:.6; cursor:progress }
 .job-dot.succeeded,.job-dot.submitted { background:#64c9a5 }
 .job-dot.failed,.job-dot.interrupted { background:#de8b81 }
 .job-description { font-size:11px; color:#8196b2; margin:4px 0 0; overflow-wrap:anywhere }
+.job-timestamp { display:block; font-size:11px; color:var(--secondary-text-color); margin-top:5px; overflow-wrap:anywhere }
+#jobs-show-more { margin-top:16px }
 .control-job-actions { display:flex; gap:10px; align-items:center }
 .control-job-state { color:#91a9bf; font-size:11px; white-space:nowrap }
 .confirmation-dialog { width:min(480px,calc(100% - 32px)); border:1px solid #395269; border-radius:16px; color:var(--text-color); background:#121d2c; padding:30px; box-shadow:0 20px 100px #0008 }

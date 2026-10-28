@@ -2,7 +2,7 @@
   "date": "2026-10-28",
   "scope": "Offline Control Center, document, OCR and native scanner software verification",
   "python_workflows": {
-    "tests": 67,
+    "tests": 75,
     "hardware_submissions": false,
     "includes": [
       "Authenticated HTTP requests and protected downloads",
@@ -18,7 +18,10 @@
       "Selected original-file backup with dates, keep flags, scan metadata and OCR text",
       "Atomic restore with preferences, disk-failure rollback and cancellation during commit",
       "Archive path, symlink, duplicate member, central-directory and checksum validation",
-      "Prepared archive expiry, fresh installation restore and repeated-response protection"
+      "Prepared archive expiry, fresh installation restore and repeated-response protection",
+      "Unresolved jobs remain visible outside the fifty-entry recent-history window",
+      "Delayed HTTP retries resolve after input deletion and dependency unavailability",
+      "Atomic job status/result rollback and cancellation during scheduler refresh"
     ]
   },
   "browser_request_recovery": {
@@ -137,6 +140,24 @@
       "Private views cleared on sign-out",
       "German and English at 320, 360 and 1440 pixels",
       "Official maintenance links without device commands"
+    ]
+  },
+  "job_history": {
+    "software_checks": 8,
+    "real_browser_checks": 7,
+    "physical_device_operations": false,
+    "recent_entries": 50,
+    "request_metadata_retention": "while private state exists",
+    "includes": [
+      "Unresolved work pinned beyond the recent window",
+      "Creation and update times in the browser time zone",
+      "German and English on 320, 360 and 1440 pixels",
+      "Expandable recent entries and missing-result messages",
+      "Read-only scheduler reconciliation, including uncertain references",
+      "Terminal scheduler states stop pending reconciliation",
+      "Cancellation wins over an in-flight stale status read",
+      "Actual protected HTTP retries after input deletion and software unavailability",
+      "State and result commit or roll back together"
     ]
   }
 }

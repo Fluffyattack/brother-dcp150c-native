@@ -69,7 +69,8 @@ class ControlCenter:
         return {"capabilities": capabilities, "documents": self.storage.list(), "jobs": self.jobs.list(),
                 "profiles": self.storage.profiles(), "settings": self.storage.settings(),
                 "scan_sessions": self.scan_sessions.list(), "backups": self.backups.list(),
-                "backup_upload_limit": self.backups.maximum_upload_bytes}
+                "backup_upload_limit": self.backups.maximum_upload_bytes,
+                "job_history_policy": self.jobs.history_policy()}
 
     def create_backup(self, values: dict, key: str | None) -> dict:
         settings = self.backups.validate_selection(values)
@@ -80,9 +81,9 @@ class ControlCenter:
             lambda event, _identifier: self.backups.export(settings, event), key, on_reserved=reserve)
 
     def restore_backup(self, archive_id: str, archive_sha256: str, restore_settings: bool, key: str | None) -> dict:
-        self.require_documents()
         parameters = {"archive_sha256": archive_sha256, "restore_settings": restore_settings}
         def reserve(identifier):
+            self.require_documents()
             # Keep the transient path out of the request hash: a retry streams
             # identical bytes into a new file but must reuse the accepted job.
             self.storage.connection.execute("UPDATE jobs SET parameters=? WHERE id=?", (
@@ -142,17 +143,18 @@ class ControlCenter:
         return settings
 
     def print_document(self, values: dict, key: str | None) -> dict:
-        self.require_documents()
         identifier = values.get("document_id", "")
-        self.storage.get(identifier)
         settings = self.printing.validate_settings(self._print_settings(values))
+        def reserve(_identifier):
+            self.require_documents()
+            self.storage.get(identifier)
         def action(event, job_identifier):
             def remember(result):
                 self.jobs.remember_result(job_identifier, {"cups_job_id": result["job_id"]})
             with self.storage.lease(identifier) as source:
                 result = self.printing.submit(source, settings, cancel_event=event, on_submitted=remember)
             return {"cups_job_id": result["job_id"]}
-        return self.jobs.submit("print", {"document_id": identifier, **settings}, action, key)
+        return self.jobs.submit("print", {"document_id": identifier, **settings}, action, key, on_reserved=reserve)
 
     def detect_scanner(self, key: str | None) -> dict:
         return self.jobs.submit("scanner_detect", {}, lambda event, _identifier: {"scanner": self.scanner.probe(event)}, key)
@@ -242,7 +244,6 @@ class ControlCenter:
         return self.jobs.submit("scan_preview", values, action, key, on_reserved=reserve)
 
     def copy(self, values: dict, key: str | None) -> dict:
-        self.require_documents()
         scan_values = {key: value for key, value in values.items() if key in {"resolution", "mode", "area", "crop", "name"}}
         scan_settings = self._scan_settings(scan_values)
         print_values = {key: value for key, value in values.items() if key not in scan_values and key != "output_format"}
@@ -256,16 +257,19 @@ class ControlCenter:
                 result = self.printing.submit(path, print_settings, cancel_event=event,
                     on_submitted=lambda result: self.jobs.remember_result(job_identifier, {"cups_job_id": result["job_id"]}))
             return {"document_id": document["id"], "cups_job_id": result["job_id"]}
-        return self.jobs.submit("copy", {"scan": scan_settings, "print": print_settings}, action, key)
+        return self.jobs.submit("copy", {"scan": scan_settings, "print": print_settings}, action, key,
+            on_reserved=lambda _identifier: self.require_documents())
 
     def recognize(self, identifier: str, values: dict, key: str | None) -> dict:
-        self.require_documents()
-        original = self.storage.get(identifier)
+        original = {}
         if set(values) - {"languages"}:
             raise StorageError("invalid_settings", "Choose supported text recognition settings.")
         languages = values.get("languages", "deu+eng")
         if not isinstance(languages, str) or len(languages) > 80:
             raise StorageError("ocr_languages", "Choose installed OCR languages.")
+        def reserve(_identifier):
+            self.require_documents()
+            original.update(self.storage.get(identifier))
         def action(event, _identifier):
             with self.storage.lease(identifier) as source, self.storage.workspace() as directory:
                 output, text = directory / "recognized.pdf", directory / "recognized.txt"
@@ -273,13 +277,15 @@ class ControlCenter:
                 document = self.storage.add(output, original["name"] + " · OCR", self.processor.inspect(output), text=text)
             self._make_preview(document["id"], event)
             return {"document_id": document["id"]}
-        return self.jobs.submit("ocr", {"document_id": identifier, "languages": languages}, action, key)
+        return self.jobs.submit("ocr", {"document_id": identifier, "languages": languages}, action, key, on_reserved=reserve)
 
     def transform(self, identifier: str, values: dict, key: str | None) -> dict:
-        self.require_documents()
-        original = self.storage.get(identifier)
+        original = {}
         if set(values) - {"pages", "rotation", "crop", "output_format"} or values.get("output_format", "pdf") != "pdf":
             raise StorageError("invalid_settings", "Save edited pages as a PDF document.")
+        def reserve(_identifier):
+            self.require_documents()
+            original.update(self.storage.get(identifier))
         def action(event, _identifier):
             with self.storage.lease(identifier) as source, self.storage.workspace() as directory:
                 output = directory / "edited.pdf"
@@ -288,17 +294,18 @@ class ControlCenter:
                 document = self.storage.add(output, original["name"] + " · Edited", self.processor.inspect(output))
             self._make_preview(document["id"], event)
             return {"document_id": document["id"]}
-        return self.jobs.submit("transform", {"document_id": identifier, **values}, action, key)
+        return self.jobs.submit("transform", {"document_id": identifier, **values}, action, key, on_reserved=reserve)
 
     def merge(self, values: dict, key: str | None) -> dict:
-        self.require_documents()
         identifiers = values.get("document_ids")
         if (set(values) - {"document_ids", "name"} or not isinstance(identifiers, list)
                 or not 2 <= len(identifiers) <= 25 or any(not isinstance(value, str) for value in identifiers)):
             raise StorageError("invalid_pages", "Choose between two and 25 documents in page order.")
-        if sum(self.storage.get(identifier)["pages"] for identifier in identifiers) > 25:
-            raise StorageError("document_page_limit", "A merged document can contain up to 25 pages.")
         name = document_name(values.get("name", "Combined document"))
+        def reserve(_identifier):
+            self.require_documents()
+            if sum(self.storage.get(identifier)["pages"] for identifier in identifiers) > 25:
+                raise StorageError("document_page_limit", "A merged document can contain up to 25 pages.")
         def action(event, _identifier):
             with ExitStack() as leases, self.storage.workspace() as directory:
                 paths = [leases.enter_context(self.storage.lease(identifier)) for identifier in identifiers]
@@ -307,7 +314,7 @@ class ControlCenter:
                 document = self.storage.add(output, name, self.processor.inspect(output))
             self._make_preview(document["id"], event)
             return {"document_id": document["id"]}
-        return self.jobs.submit("merge", {"document_ids": identifiers, "name": name}, action, key)
+        return self.jobs.submit("merge", {"document_ids": identifiers, "name": name}, action, key, on_reserved=reserve)
 
     def cancel(self, identifier: str) -> dict:
         job = self.jobs.cancel(identifier)
@@ -375,26 +382,33 @@ class ControlCenter:
                 self.scan_sessions.recover()
                 self.storage.prune()
                 self.backups.prune()
-                if not self.printing:
-                    continue
-                for job in self.jobs.unfinished_print_jobs():
-                    if self._maintenance_stop.is_set():
-                        break
-                    if not job["cups_job_id"] or job["state"] not in {"submitted", "interrupted"}:
-                        continue
-                    try:
-                        current = self.printing.job_status(job["cups_job_id"])
-                    except (ValueError, RuntimeError):
-                        continue  # A temporarily unreachable scheduler does not finish a job.
-                    state = current["state"]
-                    states = {3: ("submitted", "print_queued"), 4: ("submitted", "print_held"),
-                              5: ("submitted", "print_processing"), 6: ("submitted", "print_stopped"),
-                              7: ("cancelled", "job_cancelled"), 8: ("failed", "print_aborted"),
-                              9: ("succeeded", "print_completed")}
-                    if state in states:
-                        next_state, code = states[state]
-                        if job["state"] == "interrupted" and state == 4:
-                            next_state = "interrupted"
-                        self.jobs._update(job["id"], next_state, code, {"cups_state": state})
+                self.refresh_print_job_states()
             except OSError:
                 pass  # Read-only state remains available until the next maintenance attempt.
+
+    def refresh_print_job_states(self) -> None:
+        """Read known queue references without releasing or repeating an operation."""
+        if not self.printing:
+            return
+        for job in self.jobs.unfinished_print_jobs():
+            if self._maintenance_stop.is_set():
+                break
+            try:
+                current = self.printing.job_status(job["cups_job_id"])
+            except (ValueError, RuntimeError):
+                continue  # A temporarily unreachable scheduler does not finish a job.
+            state = current["state"]
+            states = {3: ("submitted", "print_queued"), 4: ("submitted", "print_held"),
+                      5: ("submitted", "print_processing"), 6: ("submitted", "print_stopped"),
+                      7: ("cancelled", "job_cancelled"), 8: ("failed", "print_aborted"),
+                      9: ("succeeded", "print_completed")}
+            if state in states:
+                next_state, code = states[state]
+                if job["state"] in {"interrupted", "failed"} and state == 4:
+                    next_state = job["state"]
+                with self.storage.guard:
+                    # An explicit cancellation may finish while the read-only
+                    # scheduler request is in flight. Do not restore its stale state.
+                    if self.jobs.get(job["id"])["state"] != job["state"]:
+                        continue
+                    self.jobs._update(job["id"], next_state, code, {"cups_state": state})

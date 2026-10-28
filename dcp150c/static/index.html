@@ -8,10 +8,10 @@
   <title data-translation="page.title">Brother DCP-150C · Printer status</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/assets/styles.css?v=3">
-  <link rel="stylesheet" href="/assets/control-center.css?v=4">
-  <script src="/assets/translations.js?v=6" defer></script>
+  <link rel="stylesheet" href="/assets/control-center.css?v=5">
+  <script src="/assets/translations.js?v=7" defer></script>
   <script src="/assets/app.js?v=3" defer></script>
-  <script src="/assets/control-center.js?v=4" defer></script>
+  <script src="/assets/control-center.js?v=5" defer></script>
   <script src="/assets/scan-sessions.js?v=2" defer></script>
   <script src="/assets/scan-area.js?v=1" defer></script>
   <script src="/assets/backups.js?v=1" defer></script>
@@ -228,7 +228,7 @@
         <div class="workspace-grid"><form id="settings-form" class="workspace-card"><h3 data-translation="settings.storage">Document storage</h3><label><span data-translation="settings.retention">Keep temporary documents for (hours)</span><input name="retention_hours" type="number" min="1" max="168" value="24" required></label><label><span data-translation="settings.limit">Storage limit (megabytes)</span><input name="max_storage_mb" type="number" min="64" max="4096" value="512" required></label><p id="storage-usage" class="field-help"></p><p class="field-help" data-translation="settings.keep_help">Documents marked Keep are excluded from automatic expiry. New uploads must still fit within the storage limit.</p><button class="primary-button" type="submit" data-translation="settings.save">Save settings</button></form><aside class="workspace-card"><h3 data-translation="settings.portability">Profiles and settings</h3><p class="body-copy" data-translation="settings.export_help">Export your preferences without passwords or document contents.</p><div class="button-row"><a id="export-settings" href="/api/settings/export" class="secondary-button" download data-translation="settings.export">Export settings</a><label class="secondary-button file-button"><span data-translation="settings.import">Import settings</span><input id="import-settings" type="file" accept="application/json,.json" class="sr-only"></label></div><div class="quiet-divider"></div><h3 data-translation="settings.access">Protected access</h3><p class="body-copy" data-translation="settings.access_help">Documents and device actions require your Control Center password. Sign out when using a shared device.</p><button id="logout" class="secondary-button" type="button" data-translation="auth.logout">Sign out</button><div class="quiet-divider"></div><h3 data-translation="settings.components">Available components</h3><ul id="component-list" class="component-list"></ul></aside></div>
       </section>
 
-      <section id="control-jobs" class="control-jobs" hidden aria-labelledby="control-jobs-heading"><div class="section-heading"><h2 id="control-jobs-heading" data-translation="jobs.title">Your jobs</h2><span id="control-job-count"></span></div><div id="control-job-list"></div></section>
+      <section id="control-jobs" class="control-jobs" hidden aria-labelledby="control-jobs-heading"><div class="section-heading"><h2 id="control-jobs-heading" data-translation="jobs.title">Your jobs</h2><span id="control-job-count"></span></div><p id="job-history-note" class="field-help"></p><div id="control-job-list"></div><button id="jobs-show-more" class="secondary-button" type="button" aria-controls="control-job-list" aria-expanded="false" hidden data-translation="jobs.show_more_label">Show older jobs</button></section>
 
       <dialog id="action-confirmation" class="confirmation-dialog" aria-labelledby="confirmation-title"><form id="confirmation-form"><p class="eyebrow" data-translation="control.check_details">CHECK THE DETAILS</p><h2 id="confirmation-title"></h2><p id="confirmation-description" class="body-copy"></p><dl id="confirmation-details" class="summary-details"></dl><div class="button-row"><button id="confirmation-cancel" class="secondary-button" type="button" data-translation="control.back">Back</button><button id="confirmation-submit" class="primary-button" type="submit"></button></div></form></dialog>
       <input id="document-upload" type="file" accept="application/pdf,image/png,image/jpeg,.pdf,.png,.jpg,.jpeg" hidden>

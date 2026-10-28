@@ -4,6 +4,8 @@ Stand: 28. Oktober 2026. Status: Web- und Verarbeitungspfade implementiert; weit
 
 Die Webbedienung, Dokumentverarbeitung und lokale Texterkennung sind implementiert. Den nutzbaren Ablauf beschreibt die [Bedienungsanleitung](control-center-usage.de.md), die Softwareprüfungen stehen im [Prüfbericht](control-center-validation.json). Die nachfolgenden Abnahmekriterien bleiben bestehen; eine implementierte Scanner-Anbindung ersetzt keinen bestätigten Scan am Gerät.
 
+Die [Prüfübersicht](control-center-acceptance.de.md) ordnet jeden Bereich einem vorhandenen Nachweis und noch ausstehenden Geräteversuchen zu.
+
 Das vorhandene Dashboard soll zu einer verständlichen Steuerzentrale für Drucken, Scannen, Dokumente und Gerätestatus werden. Es bleibt im Browser auf Handy und Computer bedienbar. Der native Druckertreiber bleibt dabei ein eigenständig installierbarer Bestandteil.
 
 Die Umsetzung beginnt mit dem Abschluss der vorhandenen Drucksoftware. Danach folgen geschützte Bedienfunktionen und eine nachgewiesene Scanner-Anbindung. Neue Funktionen werden erst als verfügbar angezeigt, wenn ihr jeweiliger Verarbeitungspfad funktioniert.
@@ -28,6 +30,7 @@ Für unser Projekt dienen die Funktionen als Vorbild. Die Bedienung und Gestaltu
 | Vorschau und Scanbereich | Gesamtes gemeldetes Glas als Vorschau, Auswahl per Ziehen oder Millimetereingabe, Übernahme in Profile und mehrseitige Dokumente; ausdrücklich wählbar beim Kopieren |
 | Sicherung und Wiederherstellung | Ausgewählte Originaldateien mit Metadaten und OCR-Text, wahlweise Profile und Einstellungen; vollständige Archivprüfung vor gemeinsamer Übernahme als neue Dokumente |
 | Wartungshinweise | Unter Einstellungen mit direkten Verweisen auf die betreffenden Seiten des offiziellen Modellhandbuchs; Gerätebefehle weiterhin erst nach gesonderter Prüfung |
+| Auftragshistorie | Offene Aufträge ohne Abschneiden durch die Anzeigegrenze; jüngste 50 Einträge mit lokalisierten Zeitangaben, aufklappbarer Historie und dauerhaft gespeicherten Anfragekennungen |
 
 Die aktuellen Druckergebnisse und ihre Einstellungen stehen im [Hardwaretest](../README.md#hardware-validation). Der bytegleiche Vergleich bestätigt die verglichenen Druckdaten. Einschalten, USB-Wiederverbindung und echte Scannerbewegungen sind gesonderte Gerätetests.
 
@@ -92,7 +95,7 @@ Profile werden vor der Verwendung gegen die verfügbaren Fähigkeiten geprüft. 
 | Scan-Taste am Gerät | Ein bewusst zugeordnetes Profil auslösen | Geräteereignis zuverlässig erkennen und gegen Doppelstarts absichern |
 | Speicherkarte und PhotoCapture | Bilder auf eingelegten Medien ansehen, herunterladen und als neuen Druckauftrag übernehmen | Datenträger des Druckers eindeutig erkennen; zuerst lesender Zugriff |
 | Wartung | Anleitung und Gerätestatus bündeln; später unterstützte Prüf- und Wartungsaktionen | Gerätebefehle und Auswirkungen klären und am Gerät testen |
-| Historie | Eigene abgeschlossene Aufträge mit Status und Datum anzeigen | Aufbewahrung und Sichtbarkeit der Auftragsdaten festlegen |
+| Historie | Eigene Aufträge mit Status und Datum implementiert; offene Vorgänge bleiben sichtbar | Jüngste 50 Einträge in der Anzeige; Kennungen und Zustandsmetadaten dauerhaft im privaten Zustandsspeicher, getrennt von Dokumentdateien |
 | Weitergabe als Netzwerkscanner | Nutzung durch geeignete Scannerprogramme prüfen | Native Scanner-Anbindung zuerst zuverlässig herstellen |
 
 Der DCP-150C unterstützt PhotoCapture für die vorgesehenen Karten und USB-Medien. Die Webintegration ist ein eigener Arbeitsschritt; das Vorhandensein des Kartenlesers bedeutet noch keinen fertigen Dateizugriff aus dem Dashboard. [Brother Geräte-Handbuch, PhotoCapture-Kapitel](https://download.brother.com/welcome/doc002242/cv_dcp135_ukeng_usr.pdf#page=35)
