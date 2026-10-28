@@ -22,7 +22,7 @@ Für unser Projekt dienen die Funktionen als Vorbild. Die Bedienung und Gestaltu
 | Physischer Druck | Eine A4-Seite auf Normalpapier in Normalqualität über den nativen Druckpfad bestätigt |
 | Drucken im Netzwerk | Gemeinsame Warteschlange und Erkennung im lokalen Netzwerk eingerichtet |
 | Gerätestatus und Tintenfüllstände | Direkte Abfrage des Druckers, gemeinsame USB-Sperre mit der Druckwarteschlange |
-| Weboberfläche | Sieben Bereiche mit Anmeldung, Aufträgen, Deutsch und Englisch sowie gespeicherter Sprachwahl |
+| Weboberfläche | Acht Bereiche mit Anmeldung, Aufträgen, Deutsch und Englisch sowie gespeicherter Sprachwahl |
 | Scanner auf dem Drucker-Pi | Natives Backend für das ältere Modellprotokoll gebaut und installiert; Decoder auf drei Builds verglichen; erste echte Aufnahme noch offen |
 | Webaktionen und Dokumentablage | Geschützte Uploads, Vorschau, Bearbeitung, Zusammenführen, Drucken, Aufbewahrung und Profile implementiert |
 | Texterkennung | Lokale neuronale Tesseract-Erkennung; mehrseitige durchsuchbare PDFs und Textdateien mit echten Softwaretests geprüft |
@@ -36,7 +36,7 @@ Die aktuellen Druckergebnisse und ihre Einstellungen stehen im [Hardwaretest](..
 
 ## Aufbau der Oberfläche
 
-Die Startseite erhält die Bereiche **Übersicht**, **Drucken**, **Scannen**, **Dokumente**, **Kopieren**, **Profile** und **Einstellungen**. **Speicherkarte** und **Wartung** kommen später hinzu, sobald die jeweilige Geräteanbindung vorhanden ist.
+Die Startseite enthält **Übersicht**, **Drucken**, **Scannen**, **Dokumente**, **Speicherkarte**, **Kopieren**, **Profile** und **Einstellungen**. Wartungshinweise stehen unter Einstellungen; die Zuordnung der Scan-Taste steht unter Profile.
 
 Alle Bereiche verwenden die vorhandene Sprachwahl. Beschriftungen, Fehlermeldungen, Hilfetexte und barrierefreie Bezeichnungen kommen aus dem Übersetzungskatalog. Technische Gerätekennungen erscheinen nur dort, wo sie bei Einrichtung oder Diagnose helfen.
 
@@ -72,7 +72,7 @@ Die Dokumentliste enthält eigene Uploads und Scans mit Vorschau, Dateiname, Dat
 
 Texterkennung wandelt gescannte Schrift in bearbeitbaren Text um. Geplant sind Deutsch, Englisch und durchsuchbare PDFs. Tesseract unterstützt Textausgabe und PDFs mit einer durchsuchbaren Textebene und eignet sich als lokale Verarbeitungskomponente. [Tesseract-Dokumentation](https://tesseract-ocr.github.io/tessdoc/FAQ#what-output-formats-can-tesseract-produce)
 
-Der schwächere Drucker-Pi führt die Geräteoperationen aus. Für Texterkennung wird die Verarbeitung auf dem stärkeren Pi als bevorzugte Erweiterung vorgesehen. Datenübertragung und Zuordnung müssen geschützt sein. Eine lokale Ausführung auf dem Drucker-Pi bleibt eine spätere Option nach Messung von Speicherbedarf und Laufzeit.
+Der Drucker-Pi führt die Geräteoperationen und die lokale Texterkennung aus. Die Verarbeitung läuft seitenweise mit einem Rechenthread. Tatsächliche Dokument- und OCR-Abläufe wurden auf diesem ARMv7-Pi geprüft. Eine spätere Auslagerung auf den stärkeren Pi muss Datenübertragung und Zuordnung zusätzlich schützen.
 
 Vorgeschlagene Aufbewahrung: Arbeitsdateien bleiben zunächst 24 Stunden verfügbar; dauerhaftes Behalten ist eine eigene Auswahl. Diese Vorgabe und ein Speicherlimit sind konfigurierbar. Die Oberfläche zeigt die Aufbewahrungsdauer vor dem Speichern an. Dokumentinhalt gehört nicht in Protokolle oder das GitHub-Repository.
 
@@ -92,7 +92,7 @@ Profile werden vor der Verwendung gegen die verfügbaren Fähigkeiten geprüft. 
 
 | Funktion | Geplanter Umfang | Voraussetzung |
 | --- | --- | --- |
-| Scan-Taste am Gerät | Ein bewusst zugeordnetes Profil auslösen | Geräteereignis zuverlässig erkennen und gegen Doppelstarts absichern |
+| Scan-Taste am Gerät | Explizite Zuordnung für Bild, Datei, Teilen und Texterkennung; Empfang standardmäßig aus, gespeicherte Aufträge und Schutz vor wiederholten Statusmeldungen implementiert | Echte Tastenmeldungen, erforderliche Gerätevorbereitung, Wiederverbindung und Wiederholungsverhalten am DCP-150C bestätigen |
 | Speicherkarte und PhotoCapture | FAT12/16/32-Leser und JPEG-/PNG-/PDF-Import mit Dokumentvorschau und Druckformular implementiert | Software mit regulären Dateisystemabbildern geprüft; echte Datenträgerbereitstellung des Druckers noch am Gerät bestätigen |
 | Wartung | Anleitung und Gerätestatus bündeln; später unterstützte Prüf- und Wartungsaktionen | Gerätebefehle und Auswirkungen klären und am Gerät testen |
 | Historie | Eigene Aufträge mit Status und Datum implementiert; offene Vorgänge bleiben sichtbar | Jüngste 50 Einträge in der Anzeige; Kennungen und Zustandsmetadaten dauerhaft im privaten Zustandsspeicher, getrennt von Dokumentdateien |

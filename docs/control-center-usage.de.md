@@ -44,6 +44,8 @@ Ein Dokument lässt sich herunterladen, umbenennen, behalten oder löschen. Unte
 
 **Texterkennung** verarbeitet das gewählte Dokument lokal mit Tesseracts neuronaler LSTM-Erkennung. Wähle die Sprache des Inhalts; Deutsch und Englisch können gemeinsam erkannt werden. Du erhältst eine durchsuchbare PDF und eine Textdatei. Das läuft seitenweise im Hintergrund und lässt sich abbrechen. Auf einem kleinen Pi kann die Verarbeitung länger dauern. Prüfe Zahlen und wichtige Angaben im erkannten Text.
 
+Bleibt das erste Ergebnis einer Seite leer, versucht Tesseract 5 einmal eine lokale Hintergrundkorrektur an derselben gespeicherten Aufnahme. Das kann zum Beispiel Schrift auf einem farbigen Hintergrund wiederherstellen. Die durchsuchbare PDF behält die ursprünglichen Bildfarben. Eine tatsächlich leere Seite bleibt ohne erkannten Text. [Tesseracts Hinweise zu Hintergrundkorrektur](https://tesseract-ocr.github.io/tessdoc/ImproveQuality.html#binarisation)
+
 Dokumente werden standardmäßig nach 24 Stunden gelöscht. **Behalten** schützt eine Datei vor dieser automatischen Löschung. In den Einstellungen kannst du Löschfrist und Speicherlimit ändern. Herunterladen oder Teilen verwendet die normale Funktion deines Browsers beziehungsweise Handys; die Steuerzentrale verschickt selbst keine E-Mails.
 
 ## Dateien von der Speicherkarte
@@ -59,6 +61,14 @@ Ein Abbruch vor dem Speichern übernimmt keine Datei. Ist das Original bereits g
 ## Profile und Einstellungen
 
 Profile merken benannte Einstellungen für Drucken, Scannen, OCR oder Kopieren. Das Anwenden eines Profils füllt das entsprechende Formular aus und startet keine Geräteaktion. Ein Profil ersetzt nicht die Prüfung, ob eine Einstellung am verbundenen Gerät verfügbar ist.
+
+Unter **Profile → Scan-Taste am Drucker** kannst du den Zielen **Bild**, **Datei**, **Teilen** und **Texterkennung** jeweils ein gespeichertes Scan-Profil zuweisen. Für Texterkennung wählst du zusätzlich ein OCR-Profil mit den gewünschten Sprachen. Teilen bereitet eine Datei für den Download und die Teilen-Funktion deines Browsers vor.
+
+Die Tastenannahme ist anfangs ausgeschaltet. Wähle die Zuordnungen, aktiviere sie und bestätige die Zusammenfassung. Nach dem Speichern wartest du auf die Bereitschaftsanzeige und drückst dann bewusst die Scan-Taste am Drucker. Erst eine neue passende Tastenmeldung erzeugt einen Aufnahmeauftrag. Die tatsächlichen Tastenmeldungen des DCP-150C sind noch nicht am Gerät geprüft; dieser Bereich bleibt eine Vorschau.
+
+Nach Aktivierung, Neustart, Wiederverbindung und Abschluss eines Tastenauftrags muss der Empfänger zunächst zwei Antworten ohne Tastenereignis sehen. Wiederholte Meldungen derselben Betätigung erzeugen bis dahin keinen weiteren Auftrag. Während des eigenen laufenden Tastenauftrags pausiert der Empfang. Das gescannte Original bleibt auch bei einem späteren Fehler der Texterkennung über das Auftragsergebnis verfügbar.
+
+Änderungen an Profilen gelten für die nächste angenommene Betätigung. Ein gelöschtes zugewiesenes Profil muss neu gewählt werden. Abschalten beendet die Tastenannahme; bereits angenommene Aufträge kannst du unter **Deine Aufträge** abbrechen. Tastenbelegung und Aktivierung gelten nur für diesen Pi und werden nicht mit den Dokumenten exportiert. Auf einem neuen Pi weist du die Scan-Taste erneut zu.
 
 Der Einstellungsexport enthält Profile und Aufbewahrungseinstellungen. Passwörter, Anmeldesitzungen und Dokumentinhalte gehören nicht dazu. Eine Anmeldung läuft spätestens nach zwölf Stunden ab. Melde dich an gemeinsam genutzten Geräten wieder ab.
 

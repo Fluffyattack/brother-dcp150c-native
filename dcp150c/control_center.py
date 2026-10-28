@@ -16,6 +16,7 @@ from .document_storage import DocumentStorage, StorageError, document_name
 from .job_manager import JobManager
 from .media_reader import MediaReaderService
 from .scanner_service import ScannerService
+from .scan_button_service import ScanButtonService
 from .scan_sessions import ScanSessions
 
 
@@ -62,6 +63,8 @@ class ControlCenter:
             capture_document=lambda values, event: self._scan_to_document(values, event, generate_preview=False),
             combine_pages=self._finish_scan_pages, queue_preview=self._queue_preview)
         self.backups = BackupService(self.storage, self.processor, self.validate_profile, self.export_settings)
+        self.scan_button = ScanButtonService(self.storage, self.jobs,
+            self._resolve_scan_button_binding, self._perform_scan_button_action, lock_path=lock_path)
         self.storage.prune()
         self._maintenance_stop = threading.Event()
         self._maintenance_worker = threading.Thread(target=self._maintain, name="dcp150c-retention", daemon=False)
@@ -70,6 +73,7 @@ class ControlCenter:
     def snapshot(self) -> dict:
         capabilities = copy.deepcopy(self._capabilities)
         capabilities.update(scanner=self.scanner.capabilities(), media=self.media.capabilities(),
+                            scan_button={"available": True, "hardware_verified": False},
                             authentication_configured=self.access.configured)
         with self._media_guard:
             media_listing = copy.deepcopy(self._media_listing)
@@ -77,7 +81,59 @@ class ControlCenter:
                 "profiles": self.storage.profiles(), "settings": self.storage.settings(),
                 "scan_sessions": self.scan_sessions.list(), "backups": self.backups.list(),
                 "backup_upload_limit": self.backups.maximum_upload_bytes,
-                "job_history_policy": self.jobs.history_policy(), "media_listing": media_listing}
+                "job_history_policy": self.jobs.history_policy(), "media_listing": media_listing,
+                "scan_button": self.scan_button.snapshot()}
+
+    def _resolve_scan_button_binding(self, action: str, binding: dict) -> dict:
+        self.require_documents()
+        profiles = {profile["id"]: profile for profile in self.storage.profiles()}
+        selected = profiles.get(binding["scan_profile_id"])
+        if selected is None or selected["kind"] != "scan":
+            raise StorageError("invalid_profile", "Choose an existing scanning profile for the scanner button.")
+        parameters = {"scan": self.validate_profile(selected)["settings"],
+                      "scan_profile_id": selected["id"], "scan_profile_name": selected["name"]}
+        if action == "ocr":
+            selected_ocr = profiles.get(binding["ocr_profile_id"])
+            if selected_ocr is None or selected_ocr["kind"] != "ocr":
+                raise StorageError("invalid_profile", "Choose an existing text-recognition profile.")
+            settings = self.validate_profile(selected_ocr)["settings"]
+            capabilities = self.ocr.capabilities() if self.ocr is not None else {"available": False}
+            languages = settings["languages"].split("+")
+            if not capabilities.get("available"):
+                raise StorageError("ocr_dependencies", "Install text recognition before enabling this scanner-button action.")
+            if (not 1 <= len(languages) <= 3 or len(set(languages)) != len(languages)
+                    or any(language not in capabilities["languages"] for language in languages)):
+                raise StorageError("ocr_languages", "Choose installed text-recognition languages in the saved profile.")
+            parameters.update(languages=settings["languages"], ocr_profile_id=selected_ocr["id"],
+                              ocr_profile_name=selected_ocr["name"])
+        return copy.deepcopy(parameters)
+
+    def _perform_scan_button_action(self, event: threading.Event, job_identifier: str, parameters: dict) -> dict:
+        self.require_documents()
+        if event.is_set():
+            raise StorageError("job_cancelled", "The scanner-button operation was cancelled.")
+        # A physical button request can reconnect its scanner. Merely opening
+        # the browser or enabling reception never performs scanner discovery.
+        if not self.scanner.capabilities().get("available"):
+            capabilities = self.scanner.probe(event)
+            if not capabilities.get("available"):
+                raise StorageError(capabilities.get("reason_code", "scanner_not_found"), "The scanner could not be connected.")
+        scanned = self._scan_to_document(parameters["scan"], event, generate_preview=False, scan_kind="scan_button")
+        result = {"document_id": scanned["id"], "scan_document_id": scanned["id"]}
+        self.jobs.remember_result(job_identifier, result)
+        self._make_preview(scanned["id"], event)
+        if parameters["button_action"] == "ocr":
+            with self.storage.lease(scanned["id"]) as source, self.storage.workspace() as directory:
+                output, text = directory / "recognized.pdf", directory / "recognized.txt"
+                self.ocr.process(source, output, text, parameters["languages"], event)
+                metadata = self.processor.inspect(output)
+                if event.is_set():
+                    raise StorageError("job_cancelled", "Text recognition was cancelled.")
+                document = self.storage.add(output, scanned["name"] + " · OCR", metadata, text=text)
+                result["document_id"] = document["id"]
+                self.jobs.remember_result(job_identifier, result)
+            self._make_preview(document["id"], event)
+        return result
 
     def _remember_media_listing(self, listing: dict | None) -> None:
         with self._media_guard:
@@ -258,7 +314,10 @@ class ControlCenter:
                     image.convert("RGB").save(output, "JPEG", quality=95)
             name = settings.get("name") or ("Scan " + self._timestamp_name())
             scan_metadata = {**scan_result, "kind": scan_kind} if isinstance(scan_result, dict) and "area" in scan_result else None
-            document = self.storage.add(output, name, self.processor.inspect(output), scan_metadata=scan_metadata)
+            metadata = self.processor.inspect(output)
+            if event.is_set():
+                raise StorageError("job_cancelled", "The scan was cancelled before saving the document.")
+            document = self.storage.add(output, name, metadata, scan_metadata=scan_metadata)
         if generate_preview:
             self._make_preview(document["id"], event)
         return document
@@ -440,6 +499,7 @@ class ControlCenter:
         return {"settings": self.storage.settings(), "profiles": self.storage.profiles()}
 
     def close(self) -> None:
+        self.scan_button.close()
         self.jobs.close()
         self._maintenance_stop.set()
         self._maintenance_worker.join()

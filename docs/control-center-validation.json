@@ -1,8 +1,8 @@
 {
   "date": "2026-10-28",
-  "scope": "Offline Control Center, document, OCR, memory-card and native scanner software verification",
+  "scope": "Offline Control Center, documents, neural OCR, memory cards, scan-button receiver and native scanner software verification",
   "python_workflows": {
-    "tests": 99,
+    "tests": 149,
     "hardware_submissions": false,
     "includes": [
       "Authenticated HTTP requests and protected downloads",
@@ -25,7 +25,11 @@
       "Read-only real FAT12/16/32 images, Unicode folders, corrupt allocation and source changes",
       "Mount and superblock writability, model-specific USB ancestry and device-node permissions",
       "Protected PNG, JPEG and PDF card import with real preview and original download",
-      "Card removal after an accepted request, before-commit cancellation and saved-original recovery"
+      "Card removal after an accepted request, before-commit cancellation and saved-original recovery",
+      "Native USB control ABI compared with compiled Linux headers; exact one input request and model/device identity boundaries",
+      "Opt-in scan-button profiles, two-reading baseline, durable reservations, duplicate suppression, restart and cancellation races",
+      "Constructed button events drive actual document/OCR pipelines and isolated SANE acquisition",
+      "Empty-result OCR retry recovers text on a coloured background, preserves colours and honours cancellation"
     ]
   },
   "browser_request_recovery": {
@@ -128,7 +132,8 @@
     "Cancel a physical scan and confirm device recovery",
     "Switch between scanning, printing and ink polling",
     "Confirm additional physical print settings and USB reconnection",
-    "Enumerate and read a physical memory card through the printer-owned block device"
+    "Enumerate and read a physical memory card through the printer-owned block device",
+    "Observe physical scan-button responses, repeated/held presses, required preparation and reconnect recovery"
   ],
   "physical_prints_or_scans_during_this_work": 0,
   "document_backup": {
@@ -196,5 +201,39 @@
       "German and English at 320, 360 and 1440 pixels",
       "Private views cleared on logout; no JavaScript errors; unchanged source image"
     ]
+  },
+  "scan_button": {
+    "transport_checks": 24,
+    "receiver_checks": 17,
+    "http_workflow_checks": 7,
+    "browser_logic_checks": 13,
+    "input_evidence": "constructed frames based on observed parser fields; not hardware captures",
+    "physical_button_verified": false,
+    "enabled_by_default": false,
+    "actions": [
+      "image",
+      "file",
+      "share",
+      "ocr"
+    ],
+    "baseline": "two framed non-event responses after enabling, reconnection, restart or completing a button job",
+    "request": "one device-to-host status transfer; no configuration, reset or interface detachment",
+    "transfer_timeout_milliseconds": 500,
+    "maximum_configurable_transfer_timeout_milliseconds": 1000,
+    "limits": [
+      "Kernel waits and autoresume can exceed the transfer timeout",
+      "Real event/repeat semantics and any required printer preparation are not yet verified"
+    ],
+    "local_activation_excluded_from_document_backup": true,
+    "post_status_lock_delay_milliseconds": 100,
+    "real_browser_checks": 10
+  },
+  "neural_ocr_background_retry": {
+    "regression_checks": 2,
+    "minimum_engine_version": 5,
+    "when": "first result of a page has no text",
+    "maximum_retries_per_page": 1,
+    "method": "local Sauvola thresholding on the same saved image",
+    "original_colours_preserved": true
   }
 }

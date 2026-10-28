@@ -163,6 +163,17 @@ button[aria-busy="true"] { opacity:.6; cursor:progress }
 .media-import-result { margin-bottom:20px }
 .media-import-result .media-result-name { overflow-wrap:anywhere; margin-bottom:16px }
 .media-import-result .field-help { margin-bottom:0 }
+.scan-button-settings { margin-top:24px; scroll-margin-top:20px }
+.scan-button-bindings { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin:20px 0 }
+.scan-button-binding { min-width:0; margin:0; padding:16px; border:1px solid var(--border-color); border-radius:10px }
+.scan-button-binding legend { padding:0 7px; color:#c6d5e9; font-size:13px; font-weight:600 }
+.scan-button-binding label { margin-bottom:12px; overflow-wrap:anywhere }
+.scan-button-binding .field-help { margin-bottom:0 }
+.scan-button-status-details { display:flex; flex-wrap:wrap; align-items:center; gap:8px 20px }
+.scan-button-status-details .field-help { margin:0 }
+.scan-button-settings .scan-button-error { color:#efb6af }
+.scan-button-settings .button-row>* { max-width:100%; overflow-wrap:anywhere; text-align:center }
+@media(max-width:650px) { .scan-button-bindings { grid-template-columns:1fr } }
 @media(max-width:500px) {
   .media-entry { flex-wrap:wrap; gap:10px }
   .media-entry-information { flex-basis:calc(100% - 60px) }

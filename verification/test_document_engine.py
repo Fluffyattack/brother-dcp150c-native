@@ -12,6 +12,7 @@ from PIL import Image, ImageDraw, ImageFont
 from pypdf import PdfReader, PdfWriter
 
 from dcp150c.document_processing import DocumentError, DocumentProcessor
+from dcp150c.command_runner import run_command
 from dcp150c.ocr_service import OCRError, OCRService
 from dcp150c.printing_service import PrintingError, PrintingService, validate_settings
 
@@ -205,6 +206,7 @@ class DocumentWorkflows(unittest.TestCase):
         self.assertIn('deu', service.capabilities()['languages'])
         result = service.process(two_pages, searchable, text)
         self.assertEqual(result['pages'], 2)
+        self.assertEqual(result['adaptive_retry_pages'], 0)
         self.assertIn('12345', text.read_text())
         extracted = subprocess.run(['pdftotext', str(searchable), '-'], capture_output=True,
                                    check=True, timeout=20).stdout.decode('utf-8')
@@ -218,6 +220,57 @@ class DocumentWorkflows(unittest.TestCase):
                             cancel_event=cancelled)
         self.assertEqual(failure.exception.code, 'job_cancelled')
         self.assertFalse((self.root / 'cancelled.pdf').exists())
+
+    @unittest.skipUnless(all(shutil.which(name) for name in ('tesseract', 'pdftoppm')),
+                         'Tesseract and PDF tools are needed for actual OCR checks')
+    def test_adaptive_empty_result_retry_recovers_text_and_keeps_original_colours(self):
+        source = self.root / 'dark-background.png'
+        with Image.new('RGB', (1000, 1400), '#df342f') as image:
+            draw = ImageDraw.Draw(image)
+            draw.rectangle((40, 100, 960, 420), fill='white')
+            font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', 58)
+            draw.text((70, 170), 'NATIVE PAGE 4', font=font, fill='black')
+            image.save(source)
+        attempts, first_text = [], []
+        def record(arguments, **options):
+            result = run_command(arguments, **options)
+            if arguments[0] == 'tesseract' and 'pdf' in arguments:
+                attempts.append(arguments)
+                if len(attempts) == 1:
+                    first_text.append(Path(arguments[2]).with_suffix('.txt').read_text())
+            return result
+        output, text = self.root / 'adaptive.pdf', self.root / 'adaptive.txt'
+        result = OCRService(command_runner=record).process(source, output, text, 'eng')
+        self.assertIn('NATIVE PAGE 4', text.read_text().upper())
+        self.assertIn('NATIVE PAGE 4', PdfReader(output).pages[0].extract_text().upper())
+        self.assertIn(len(attempts), (1, 2))
+        self.assertEqual(result['adaptive_retry_pages'], int(not first_text[0].strip()))
+        self.assertEqual(result['adaptive_recovered_pages'], result['adaptive_retry_pages'])
+        if len(attempts) == 2:
+            self.assertIn('thresholding_method=2', attempts[-1])
+        preview = self.root / 'adaptive-preview.png'
+        self.processor.preview(output, preview)
+        with Image.open(preview).convert('RGB') as rendered:
+            actual = rendered.getpixel((rendered.width // 2, rendered.height * 4 // 5))
+            self.assertTrue(all(abs(value - expected) <= 8 for value, expected in zip(actual, (223, 52, 47))), actual)
+
+    @unittest.skipUnless(all(shutil.which(name) for name in ('tesseract', 'pdftoppm')),
+                         'Tesseract and PDF tools are needed for actual OCR checks')
+    def test_cancelling_after_ocr_process_returns_stops_retry_and_output_commit(self):
+        cancellation, attempts = threading.Event(), []
+        def finish_then_cancel(arguments, **options):
+            result = run_command(arguments, **options)
+            if arguments[0] == 'tesseract' and 'pdf' in arguments:
+                attempts.append(arguments)
+                cancellation.set()
+            return result
+        output, text = self.root / 'stopped.pdf', self.root / 'stopped.txt'
+        with self.assertRaises(OCRError) as failure:
+            OCRService(command_runner=finish_then_cancel).process(self.red, output, text, 'eng', cancellation)
+        self.assertEqual(failure.exception.code, 'job_cancelled')
+        self.assertEqual(len(attempts), 1)
+        self.assertFalse(output.exists())
+        self.assertFalse(text.exists())
 
 
 if __name__ == '__main__':

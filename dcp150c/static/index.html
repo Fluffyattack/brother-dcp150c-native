@@ -8,14 +8,15 @@
   <title data-translation="page.title">Brother DCP-150C · Printer status</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/assets/styles.css?v=3">
-  <link rel="stylesheet" href="/assets/control-center.css?v=6">
-  <script src="/assets/translations.js?v=8" defer></script>
+  <link rel="stylesheet" href="/assets/control-center.css?v=7">
+  <script src="/assets/translations.js?v=9" defer></script>
   <script src="/assets/app.js?v=3" defer></script>
-  <script src="/assets/control-center.js?v=6" defer></script>
+  <script src="/assets/control-center.js?v=7" defer></script>
   <script src="/assets/scan-sessions.js?v=2" defer></script>
   <script src="/assets/scan-area.js?v=1" defer></script>
   <script src="/assets/backups.js?v=1" defer></script>
   <script src="/assets/media.js?v=1" defer></script>
+  <script src="/assets/scan-button.js?v=1" defer></script>
 </head>
 <body>
   <div class="shell">
@@ -220,6 +221,23 @@
       <section id="view-profiles" class="control-view" role="tabpanel" aria-labelledby="tab-profiles" hidden>
         <div class="view-heading"><div><p class="eyebrow" data-translation="control.your_defaults">MAKE IT YOURS</p><h2 data-translation="control.profiles">Profiles</h2><p data-translation="profiles.introduction">Save your current print, scan or copy settings under a name you recognise.</p></div></div>
         <div class="workspace-grid"><div id="profile-list" class="profile-list"></div><form id="profile-form" class="workspace-card"><h3 id="profile-editor-heading" data-translation="profiles.create">Save a profile</h3><label><span data-translation="profiles.name">Profile name</span><input name="name" type="text" maxlength="80" required></label><label><span data-translation="profiles.settings_from">Use current settings from</span><select name="kind"><option value="scan" data-translation="control.scan">Scan</option><option value="print" data-translation="control.print">Print</option><option value="copy" data-translation="control.copy">Copy</option><option value="ocr" data-translation="ocr.title">Recognise text</option></select></label><p class="field-help" data-translation="profiles.help">Set up the matching tab first. Saving a profile does not start a device operation.</p><div class="button-row"><button class="primary-button" type="submit" data-translation="profiles.save">Save profile</button><button id="profile-edit-cancel" class="secondary-button" type="button" data-translation="control.back" hidden>Back</button></div></form></div>
+        <form id="scan-button-form" class="workspace-card scan-button-settings" aria-labelledby="scan-button-heading">
+          <div class="card-heading"><h3 id="scan-button-heading" data-translation="scan_button.heading">Scan button on the printer</h3><span class="badge" data-translation="scan_button.preview">PREVIEW</span></div>
+          <p class="body-copy" data-translation="scan_button.introduction">Choose which saved profiles the printer's Scan button uses. Saving these assignments does not start a scan.</p>
+          <p id="scan-button-status" class="capability-note" role="status" aria-live="polite"></p>
+          <p id="scan-button-hardware-note" class="field-help" data-translation="scan_button.hardware_pending">This feature still needs a real button test on the printer.</p>
+          <label class="checkbox-label"><input id="scan-button-enabled" name="enabled" type="checkbox"><span data-translation="scan_button.enable">Allow scans from the printer's Scan button</span></label>
+          <p class="field-help" data-translation="scan_button.enable_help">Once enabled, a later press on the printer starts the selected profile. Wait until the button is ready; another press during a button scan does not start an extra scan.</p>
+          <div class="scan-button-bindings">
+            <fieldset class="scan-button-binding"><legend data-translation="scan_button.action.image">Image</legend><label><span data-translation="scan_button.scan_profile">Scan profile</span><select id="scan-button-image-profile" data-scan-button-action="image" data-scan-button-kind="scan" aria-describedby="scan-button-image-note"></select></label><p id="scan-button-image-note" class="field-help"></p></fieldset>
+            <fieldset class="scan-button-binding"><legend data-translation="scan_button.action.file">File</legend><label><span data-translation="scan_button.scan_profile">Scan profile</span><select id="scan-button-file-profile" data-scan-button-action="file" data-scan-button-kind="scan" aria-describedby="scan-button-file-note"></select></label><p id="scan-button-file-note" class="field-help"></p></fieldset>
+            <fieldset class="scan-button-binding"><legend data-translation="scan_button.action.email">Share</legend><label><span data-translation="scan_button.scan_profile">Scan profile</span><select id="scan-button-email-profile" data-scan-button-action="email" data-scan-button-kind="scan" aria-describedby="scan-button-email-note"></select></label><p id="scan-button-email-note" class="field-help"></p></fieldset>
+            <fieldset class="scan-button-binding"><legend data-translation="scan_button.action.ocr">Text recognition</legend><label><span data-translation="scan_button.scan_profile">Scan profile</span><select id="scan-button-ocr-profile" data-scan-button-action="ocr" data-scan-button-kind="scan" aria-describedby="scan-button-ocr-note"></select></label><label><span data-translation="scan_button.ocr_profile">Text recognition profile</span><select id="scan-button-ocr-text-profile" data-scan-button-action="ocr" data-scan-button-kind="ocr" aria-describedby="scan-button-ocr-note"></select></label><p id="scan-button-ocr-note" class="field-help"></p></fieldset>
+          </div>
+          <div class="button-row"><button id="scan-button-save" class="primary-button" type="submit" data-translation="scan_button.save">Save assignments</button><button id="scan-button-reload" class="secondary-button" type="button" data-translation="scan_button.reload" hidden>Load saved assignments</button></div>
+          <p id="scan-button-save-note" class="field-help" role="status" aria-live="polite"></p>
+          <div class="scan-button-status-details"><p id="scan-button-last-action" class="field-help"></p><time id="scan-button-last-checked" class="field-help" hidden></time><p id="scan-button-last-job-state" class="field-help"></p><button id="scan-button-open-result" class="text-button" type="button" data-translation="scan_button.open_result" hidden>Open last scan</button></div>
+        </form>
       </section>
 
       <section id="view-settings" class="control-view" role="tabpanel" aria-labelledby="tab-settings" hidden>

@@ -87,6 +87,7 @@ class OCRService:
             originals = PdfReader(str(input_path)) if metadata['media_type'] == 'application/pdf' else None
             writer = PdfWriter()
             character_count = 0
+            adaptive_retry_pages = adaptive_recovered_pages = 0
             with tempfile.TemporaryDirectory(prefix='ocr-', dir=output_pdf.parent) as directory:
                 work = Path(directory)
                 text_pages = []
@@ -118,17 +119,40 @@ class OCRService:
                                          '+'.join(selected_languages), '--oem', '1', '--psm', '3',
                                          '--dpi', '300', 'pdf', 'txt'], timeout=240,
                                         cancel_event=cancel_event, env={'OMP_THREAD_LIMIT': '1'})
-                    recognized = PdfReader(str(basename.with_suffix('.pdf')))
-                    if len(recognized.pages) != 1:
-                        raise OCRError('ocr_failed', 'OCR did not produce a complete page.')
-                    page = recognized.pages[0]
-                    if original_width is not None:
-                        page.scale_to(original_width, original_height)
-                    writer.add_page(page)
                     text_file = basename.with_suffix('.txt')
                     if not text_file.is_file() or text_file.stat().st_size > 2 * 1024 * 1024:
                         raise OCRError('ocr_failed', 'OCR text output exceeds the processing limit.')
                     recognized_text = text_file.read_text(encoding='utf-8')
+                    recognized = PdfReader(str(basename.with_suffix('.pdf')))
+                    if len(recognized.pages) != 1:
+                        raise OCRError('ocr_failed', 'OCR did not produce a complete page.')
+                    if cancel_event is not None and cancel_event.is_set():
+                        raise OCRError('job_cancelled', 'The operation was cancelled.')
+                    # Tesseract 5's local thresholding can recover text that
+                    # global thresholding misses on uneven or dark backgrounds.
+                    # Retry only an empty result, once, on the same saved image.
+                    major_version = int(capabilities.get('version', '0').split('.')[0])
+                    if not recognized_text.strip() and major_version >= 5:
+                        adaptive_retry_pages += 1
+                        adaptive = work / 'recognized-adaptive'
+                        self.command_runner(['tesseract', str(image), str(adaptive), '-l',
+                            '+'.join(selected_languages), '--oem', '1', '--psm', '3',
+                            '--dpi', '300', '-c', 'thresholding_method=2', 'pdf', 'txt'],
+                            timeout=240, cancel_event=cancel_event, env={'OMP_THREAD_LIMIT': '1'})
+                        adaptive_text = adaptive.with_suffix('.txt')
+                        if not adaptive_text.is_file() or adaptive_text.stat().st_size > 2 * 1024 * 1024:
+                            raise OCRError('ocr_failed', 'OCR text output exceeds the processing limit.')
+                        recovered_text = adaptive_text.read_text(encoding='utf-8')
+                        recovered = PdfReader(str(adaptive.with_suffix('.pdf')))
+                        if len(recovered.pages) != 1:
+                            raise OCRError('ocr_failed', 'OCR did not produce a complete page.')
+                        if recovered_text.strip():
+                            recognized_text, recognized = recovered_text, recovered
+                            adaptive_recovered_pages += 1
+                    page = recognized.pages[0]
+                    if original_width is not None:
+                        page.scale_to(original_width, original_height)
+                    writer.add_page(page)
                     character_count += len(recognized_text)
                     text_pages.append(recognized_text)
                     if progress is not None:
@@ -140,7 +164,8 @@ class OCRService:
                 output_text.write_text('\n\f\n'.join(text_pages), encoding='utf-8')
             self.documents.inspect(output_pdf)
             return {'pdf': str(output_pdf), 'text': str(output_text), 'pages': metadata['page_count'],
-                    'engine': 'tesseract', 'languages': selected_languages, 'characters': character_count}
+                    'engine': 'tesseract', 'languages': selected_languages, 'characters': character_count,
+                    'adaptive_retry_pages': adaptive_retry_pages, 'adaptive_recovered_pages': adaptive_recovered_pages}
         except (DocumentError, CommandError) as exc:
             output_pdf.unlink(missing_ok=True)
             output_text.unlink(missing_ok=True)

@@ -232,11 +232,15 @@ function clearPrivateViews() {
   findElementById("jobs-show-more").hidden = true;
   findElementById("job-history-note").textContent = "";
   if (findElementById("action-confirmation").open) findElementById("action-confirmation").close();
+  findElementById("confirmation-title").textContent = "";
+  findElementById("confirmation-description").textContent = "";
+  findElementById("confirmation-details").replaceChildren();
   confirmationAction = null;
   if (typeof clearScanSessionViews === "function") clearScanSessionViews();
   if (typeof clearScanAreaViews === "function") clearScanAreaViews();
   if (typeof clearBackupViews === "function") clearBackupViews();
   if (typeof clearMediaReaderViews === "function") clearMediaReaderViews();
+  if (typeof clearScanButtonViews === "function") clearScanButtonViews();
   showControlView("overview");
 }
 
@@ -702,7 +706,8 @@ function renderControlCenter() {
   if (typeof renderScanSessions === "function") renderScanSessions();
   if (typeof renderBackups === "function" && changed("backups", controlState.backups)) renderBackups();
   if (typeof renderMediaReader === "function") renderMediaReader();
-  const latestScanJob = controlState.jobs.find((job) => ["scan", "copy", "scan_page", "scan_preview"].includes(job.kind) && job.result_document_id);
+  if (typeof renderScanButtonSettings === "function") renderScanButtonSettings();
+  const latestScanJob = controlState.jobs.find((job) => ["scan", "copy", "scan_page", "scan_preview", "scan_button"].includes(job.kind) && job.result_document_id);
   const latestScan = latestScanJob ? controlState.documents.find((record) => record.id === latestScanJob.result_document_id) : null;
   const latestContainer = findElementById("scan-latest");
   if (latestScan && latestContainer.dataset.record !== latestScan.id) {
